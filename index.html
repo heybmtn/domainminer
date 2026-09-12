@@ -117,6 +117,12 @@
   tbody tr:hover{background:#f2f1ff}
   td.dom{font-family:var(--mono); font-weight:700}
   td.dom::before{content:"\261E\00a0\00a0"; color:var(--blue)}
+  td.dom a.dlink{color:var(--ink); text-decoration:none}
+  td.dom a.dlink:hover{color:var(--blue); text-decoration:underline}
+  .copybtn{font-family:var(--mono); font-size:10px; line-height:1; color:#555; background:#fff;
+     border:1px solid var(--rule); border-radius:0; padding:2px 5px; margin-left:8px; cursor:pointer; vertical-align:middle}
+  .copybtn:hover{border-color:var(--ink); color:var(--ink)}
+  .copybtn.ok{color:var(--blue); border-color:var(--blue)}
   td.num{text-align:right; font-variant-numeric:tabular-nums; color:var(--muted)}
   .tag{display:inline-block; font-family:var(--mono); font-size:10px; letter-spacing:.03em;
        color:var(--blue); border:1px solid var(--blue); padding:0 4px; margin-left:8px}
@@ -235,6 +241,7 @@
                 <th data-k="words">Words <span class="ar"></span></th>
                 <th data-k="letters" class="num">Letters <span class="ar"></span></th>
                 <th data-k="drop_time">Drop time (UTC) <span class="ar"></span></th>
+                <th data-k="drop_ms">Time to drop <span class="ar"></span></th>
                 <th data-k="score" class="num active">Score <span class="ar">&darr;</span></th>
               </tr></thead>
               <tbody id="tbody"></tbody>
@@ -460,7 +467,7 @@ async function processText(text, file){
       if(!domain || seen.has(domain)) continue;
       seen.add(domain);
       const c = DropCore.makeCandidate(domain, drop, V, N, 3);
-      if(c) out.push(c);
+      if(c){ c.drop_ms = Date.parse(c.drop_time) || 0; out.push(c); }
     }
     showProc("Scanning "+lines.length.toLocaleString()+" domains\u2026", 15 + Math.round((end/lines.length)*80));
     await new Promise(r => setTimeout(r));
@@ -511,6 +518,13 @@ function sortFiltered(){
   });
 }
 
+function fmtDur(ms){
+  const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5), m=Math.floor(ms%36e5/6e4);
+  if(d>=1) return d+"d"+(h?" "+h+"h":"");
+  if(h>=1) return h+"h"+(m?" "+m+"m":"");
+  return Math.max(m,0)+"m";
+}
+
 function render(){
   if(!allRows.length) return;
   if(filtered.length===0 && (allRows.length && document.querySelector(".dirty"))) {}
@@ -525,12 +539,20 @@ function render(){
   const frag = document.createDocumentFragment();
   for(const r of view){
     const tr = document.createElement("tr");
-    const soon = r.drop_time && (new Date(r.drop_time)-now) < 5*864e5 && (new Date(r.drop_time)-now) > 0;
+    const diff = r.drop_ms ? r.drop_ms - now : NaN;
+    const dropped = r.drop_ms && diff<=0;
+    const soon = diff>0 && diff < 5*864e5;
+    const hot = soon || dropped;
+    const until = !r.drop_ms ? '' : (dropped ? 'dropped' : fmtDur(diff));
     tr.innerHTML =
-      '<td class="dom mono">'+r.domain+(r.commercial?'<span class="tag">buyer</span>':'')+'</td>'+
+      '<td class="dom mono">'+
+        '<a class="dlink" href="https://www.namecheap.com/domains/registration/results/?domain='+encodeURIComponent(r.domain)+'" target="_blank" rel="noopener" title="Check '+r.domain+' on Namecheap">'+r.domain+'</a>'+
+        '<button class="copybtn" type="button" data-d="'+r.domain+'" title="Copy '+r.domain+'" aria-label="Copy domain">copy</button>'+
+        (r.commercial?'<span class="tag">buyer</span>':'')+'</td>'+
       '<td>'+r.words+'</td>'+
       '<td class="num">'+r.letters+'</td>'+
-      '<td class="mono '+(soon?'drcoming':'')+'">'+(r.drop_time||'')+'</td>'+
+      '<td class="mono '+(hot?'drcoming':'')+'">'+(r.drop_time||'')+'</td>'+
+      '<td class="'+(hot?'drcoming':'')+'">'+until+'</td>'+
       '<td class="num">'+r.score.toFixed(2)+'</td>';
     frag.appendChild(tr);
   }
@@ -564,7 +586,7 @@ $("#reset").addEventListener("click",()=>{
 
 document.querySelectorAll("thead th").forEach(th=>th.addEventListener("click",()=>{
   const k=th.dataset.k;
-  if(sortKey===k) sortDir=-sortDir; else { sortKey=k; sortDir = (k==="domain"||k==="words")?1:-1; }
+  if(sortKey===k) sortDir=-sortDir; else { sortKey=k; sortDir = (k==="domain"||k==="words"||k==="drop_time"||k==="drop_ms")?1:-1; }
   sortFiltered(); render();
 }));
 
@@ -577,6 +599,26 @@ $("#download").addEventListener("click",()=>{
   const d = new Date().toISOString().slice(0,10);
   a.href=url; a.download="shortlist-"+d+".csv"; a.click();
   URL.revokeObjectURL(url);
+});
+
+/* click "copy" to copy a domain; click the domain to open it on Namecheap */
+function legacyCopy(txt){
+  const ta=document.createElement("textarea"); ta.value=txt;
+  ta.style.position="fixed"; ta.style.top="-1000px"; document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try{ document.execCommand("copy"); }catch(e){}
+  document.body.removeChild(ta);
+}
+function copyDomain(txt, btn){
+  const flash=()=>{ if(!btn) return; btn.textContent="copied \u2713"; btn.classList.add("ok");
+    setTimeout(()=>{ btn.textContent="copy"; btn.classList.remove("ok"); }, 1100); };
+  if(navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(txt).then(flash, ()=>{ legacyCopy(txt); flash(); });
+  else { legacyCopy(txt); flash(); }
+}
+$("#tbody").addEventListener("click", e=>{
+  const b = e.target.closest(".copybtn"); if(!b) return;
+  e.preventDefault(); copyDomain(b.getAttribute("data-d"), b);
 });
 </script>
 </body>
