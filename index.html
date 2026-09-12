@@ -193,6 +193,7 @@
           <div class="hint">Names with a commercial word (buy, hire, repair, insurance&hellip;).</div>
         </div>
 
+        <button class="btn" id="apply" type="button" style="width:100%; margin-bottom:10px">Apply filters</button>
         <div class="btnrow">
           <button class="btn ghost" id="reset" type="button">Reset</button>
           <button class="btn ghost" id="loadnew" type="button">Load file</button>
@@ -548,10 +549,10 @@ function render(){
 }
 
 window.__processText = processText;
-/* debounce keyword typing */
-let deb; function onFilter(){ filtered=[]; window.__filteredOnce=false; clearTimeout(deb); deb=setTimeout(applyAndRender,140); }
-["#kw","#ex","#minlen","#maxlen"].forEach(s=>$(s).addEventListener("input",onFilter));
-document.querySelectorAll(".wc,.tld,#commonly,input[name=kwmode]").forEach(c=>c.addEventListener("change",()=>{filtered=[];window.__filteredOnce=false;applyAndRender();}));
+/* manual filtering: full list shows on load; filters apply only on demand */
+function runFilters(){ filtered=[]; window.__filteredOnce=false; applyAndRender(); }
+$("#apply").addEventListener("click", runFilters);
+["#kw","#ex","#minlen","#maxlen"].forEach(s=>$(s).addEventListener("keydown", e=>{ if(e.key==="Enter") runFilters(); }));
 
 $("#reset").addEventListener("click",()=>{
   $("#kw").value=""; $("#ex").value=""; $("#minlen").value=""; $("#maxlen").value="";
