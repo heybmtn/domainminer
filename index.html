@@ -6,150 +6,138 @@
 <title>UK Droplist Filter</title>
 <style>
   :root{
-    --desk:#d5d5d3; --paper:#ffffff; --ink:#0c0c0c; --blue:#1a12e6;
-    --tb:#ecece9; --rule:#e2e2de; --muted:#5a5a57; --hatch:rgba(0,0,0,.05);
-    --serif:Georgia,"Times New Roman",Times,serif;
-    --sans:Helvetica,Arial,"Helvetica Neue",sans-serif;
-    --mono:"Courier New",Courier,ui-monospace,Menlo,Consolas,monospace;
+    --paper:#f5f5f3; --surface:#ffffff;
+    --ink:#111111; --ink900:#1a1a1a; --ink700:#444444; --ink500:#8a8a8a;
+    --ink300:#d6d6d6; --ink200:#ececec; --ink100:#f5f5f3;
+    --grotesk:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --serif:"Iowan Old Style",Georgia,"Times New Roman",Times,serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono","Courier New",monospace;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{
-    font-family:var(--sans); color:var(--ink); font-size:15px; line-height:1.45;
-    background-color:var(--desk);
-    background-image:
-      repeating-linear-gradient(135deg,var(--hatch) 0 1px,transparent 1px 23px),
-      repeating-linear-gradient(135deg,rgba(0,0,0,.03) 0 1px,transparent 1px 6px);
-    -webkit-font-smoothing:antialiased;
-  }
-  ::selection{background:var(--blue); color:#fff}
+  body{font-family:var(--grotesk); color:var(--ink); font-size:14px; line-height:1.45; background:var(--paper);
+       -webkit-font-smoothing:antialiased}
+  ::selection{background:var(--ink); color:#fff}
   .mono{font-family:var(--mono)}
 
-  /* ---- windows ---- */
-  .win{background:var(--paper); border:1px solid var(--ink);
-       box-shadow:3px 3px 0 rgba(0,0,0,.18); border-radius:0}
-  .tb{display:flex; align-items:center; justify-content:space-between;
-      background:var(--tb); border-bottom:1px solid var(--ink);
-      padding:4px 8px; font-family:var(--mono); font-size:11px; color:#333; letter-spacing:.02em}
-  .x{display:grid; place-items:center; width:15px; height:13px; border:1px solid var(--ink);
-     background:#fff; font-size:10px; line-height:1; color:#111}
-  .bd{padding:16px; background:var(--paper)}
-
-  /* ---- header ---- */
-  header{max-width:1200px; margin:22px auto 0; padding:0 22px}
-  header .bd{padding:18px 20px; display:flex; flex-wrap:wrap; align-items:flex-start; gap:6px 18px}
-  .mark{display:flex; align-items:center; gap:10px}
-  .logo{width:18px; height:18px; background:var(--blue); display:inline-block;
-        box-shadow:2px 2px 0 rgba(0,0,0,.25)}
-  .brand{font-family:var(--serif); font-weight:700; font-size:27px; letter-spacing:-.01em; line-height:1}
-  .sub{width:100%; color:var(--muted); font-size:14px; margin-top:2px}
-  .tags{display:flex; gap:12px; margin-top:2px}
-  .bkt{font-family:var(--serif); font-size:14px; color:var(--ink)}
-  .filemeta{width:100%; font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:6px}
+  /* masthead */
+  .mast{max-width:1200px; margin:28px auto 0; padding:0 22px}
+  .mast-top{display:flex; justify-content:space-between; align-items:flex-start; gap:16px}
+  .mast-brand{font-family:var(--grotesk); font-weight:800; font-size:34px; letter-spacing:-.03em; line-height:.95}
+  .mast-rule{height:2px; background:var(--ink900); margin:16px 0}
+  .mast-meta{display:flex; justify-content:space-between; align-items:baseline; margin-top:12px; flex-wrap:wrap; gap:6px}
+  .filemeta{font-family:var(--mono); font-size:12px; color:var(--ink500); text-align:right}
   .filemeta strong{color:var(--ink)}
 
-  /* ---- layout ---- */
-  .wrap{max-width:1200px; margin:16px auto 40px; padding:0 22px;
-        display:grid; grid-template-columns:276px 1fr; gap:22px; align-items:start}
-  @media(max-width:840px){ .wrap{grid-template-columns:1fr} }
-  aside{position:sticky; top:22px}
-  @media(max-width:840px){ aside{position:static} }
+  /* cards: 2px border signature, black panel header */
+  .win{background:var(--surface); border:2px solid var(--ink900); border-radius:0; overflow:hidden}
+  .tb{background:var(--ink); color:#fff; padding:12px 16px; font-family:var(--grotesk);
+      font-weight:700; font-size:14px; letter-spacing:.01em}
+  .x{display:none}
+  .bd{padding:18px; background:var(--surface)}
+  h2{display:none}
 
-  h2{font-family:var(--serif); font-weight:700; font-size:18px; margin:0 0 14px;
-     padding-bottom:8px; border-bottom:1px solid var(--ink)}
+  /* layout */
+  .wrap{max-width:1200px; margin:20px auto 40px; padding:0 22px;
+        display:grid; grid-template-columns:300px 1fr; gap:20px; align-items:start}
+  @media(max-width:860px){ .wrap{grid-template-columns:1fr} }
+  aside{position:sticky; top:20px}
+  @media(max-width:860px){ aside{position:static} }
 
-  /* ---- form ---- */
+  /* eyebrow-style form labels */
   .fld{margin-bottom:16px}
-  .fld label.t{display:block; font-weight:700; font-size:12px; letter-spacing:.02em; margin-bottom:6px}
-  input[type=text],input[type=number]{width:100%; padding:8px 10px; border:1px solid var(--ink);
+  .fld label.t{display:block; font-family:var(--grotesk); font-weight:700; font-size:11px;
+     letter-spacing:.16em; text-transform:uppercase; color:var(--ink500); margin-bottom:7px}
+  input[type=text],input[type=number]{width:100%; padding:9px 11px; border:2px solid var(--ink900);
      border-radius:0; font-family:var(--mono); font-size:13px; color:var(--ink); background:#fff}
-  input:focus,button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--blue); outline-offset:1px}
+  input::placeholder{color:var(--ink500)}
+  input:focus{outline:2px solid var(--ink); outline-offset:2px}
+  button:focus-visible,a:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
   .row{display:flex; gap:8px} .row input{width:100%}
   .checks{display:flex; gap:14px; flex-wrap:wrap}
-  .chk{display:flex; align-items:center; gap:6px; font-size:14px; cursor:pointer}
-  .chk input{accent-color:var(--blue); width:16px; height:16px}
-  .hint{color:var(--muted); font-size:12px; margin-top:5px}
-  .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px;
-       padding:9px 14px; border:1px solid var(--ink); border-radius:0; background:var(--blue);
-       color:#fff; font-family:var(--sans); font-weight:700; font-size:14px; cursor:pointer;
-       box-shadow:2px 2px 0 rgba(0,0,0,.28)}
-  .btn:hover{filter:brightness(1.08)}
-  .btn:active{transform:translate(2px,2px); box-shadow:0 0 0 rgba(0,0,0,.28)}
-  .btn.ghost{background:#fff; color:var(--ink)}
-  .btn[disabled]{opacity:.5; cursor:not-allowed; box-shadow:none}
+  .chk{display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer}
+  .chk input{accent-color:var(--ink); width:16px; height:16px}
+  .hint{color:var(--ink700); font-size:12px; margin-top:5px}
+
+  /* pill controls */
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:9px 16px;
+       border:2px solid var(--ink); border-radius:0; background:var(--ink); color:#fff;
+       font-family:var(--grotesk); font-weight:700; font-size:13px; cursor:pointer}
+  .btn:hover{background:#000; border-color:#000}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:#fff; color:var(--ink); border:2px solid var(--ink)}
+  .btn.ghost:hover{background:var(--ink100)}
+  .btn.ghost.okall{background:var(--ink); color:#fff; border-color:var(--ink)}
+  .btn[disabled]{opacity:.4; cursor:not-allowed}
   .btnrow{display:flex; gap:10px; margin-top:6px}
 
-  /* ---- results window body edge-to-edge ---- */
-  main{min-width:0}          /* let the table scroll inside its window instead of overflowing */
+  /* results / 1-bit drop panel */
+  main{min-width:0}
   main .bd{padding:0}
-  #dropstate{padding:14px}
-  .drop{border:1px solid var(--ink); box-shadow:3px 3px 0 rgba(0,0,0,.18);
-        background:var(--blue); color:#fff; cursor:pointer}
-  .drop.hot{outline:3px solid var(--ink); outline-offset:-1px}
-  .drop-tb{display:flex; align-items:center; justify-content:space-between;
-        background:var(--tb); color:#333; border-bottom:1px solid var(--ink);
-        padding:4px 8px; font-family:var(--mono); font-size:11px}
-  .drop-bd{padding:52px 24px; text-align:center}
-  .drop .big{font-family:var(--serif); font-weight:700; font-size:28px; margin:2px 0 8px}
-  .drop .small{font-size:14px; opacity:.92}
-  .drop .kbd{font-family:var(--mono); font-size:12px; opacity:.82; margin-top:16px; word-break:break-all}
+  #dropstate{padding:16px}
+  .drop{border:2px solid var(--ink900); border-radius:0; background:#fff; overflow:hidden; cursor:pointer}
+  .drop-tb{background:var(--ink); color:#fff; padding:12px 16px; font-family:var(--grotesk); font-weight:700; font-size:13px}
+  .drop-bd{margin:16px; border:2px dashed var(--ink900); border-radius:0; padding:52px 24px; text-align:center; background:#fff}
+  .drop.hot .drop-bd{background:var(--ink100); border-color:var(--ink)}
+  .drop .big{font-family:var(--grotesk); font-weight:800; font-size:22px; letter-spacing:-.01em; text-transform:uppercase}
+  .drop .small{color:var(--ink500); font-size:13px}
+  .drop .kbd{font-family:var(--mono); color:var(--ink500); font-size:12px; margin-top:16px; word-break:break-all}
 
-  .progress{height:8px; background:#e5e5ef; border:1px solid var(--ink); margin:18px 4px 6px; overflow:hidden}
-  .progress i{display:block; height:100%; width:0; background:var(--blue); transition:width .1s}
+  .progress{height:10px; background:var(--ink200); border:2px solid var(--ink900); border-radius:0; overflow:hidden; margin:16px 4px 6px}
+  .progress i{display:block; height:100%; width:0; background:var(--ink); transition:width .1s}
   #proc .hint{font-family:var(--mono); padding:0 4px}
 
-  .statusbar{display:flex; align-items:center; gap:16px; padding:14px 18px;
-     border-bottom:1px solid var(--ink); background:#faf9f6; flex-wrap:wrap}
-  .count{font-family:var(--serif); font-size:24px; font-weight:700}
-  .count small{font-family:var(--sans); font-size:12px; color:var(--muted); font-weight:700}
-  .split{font-family:var(--serif); font-size:15px; color:var(--muted)}
+  .statusbar{display:flex; align-items:center; gap:16px; padding:16px 18px; border-bottom:2px solid var(--ink900); background:#fff; flex-wrap:wrap}
+  .count{font-family:var(--mono); font-weight:700; font-size:22px; color:var(--ink)}
+  .count small{font-family:var(--grotesk); font-size:11px; color:var(--ink500); font-weight:700; letter-spacing:.14em; text-transform:uppercase}
+  .split{font-family:var(--mono); font-size:13px; color:var(--ink500)}
   .split b{color:var(--ink)}
-  .statusbar .btn{margin-left:auto}
+  .sb-actions{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap}
 
   .tablewrap{overflow:auto; max-height:70vh}
-  table{border-collapse:collapse; width:100%; font-size:14px}
-  thead th{position:sticky; top:0; background:#efefec; text-align:left; padding:9px 14px;
-     border-bottom:2px solid var(--ink); font-family:var(--mono); font-size:11px; color:#333;
-     font-weight:700; cursor:pointer; white-space:nowrap; user-select:none}
-  thead th .ar{opacity:.35; margin-left:4px}
-  thead th.active{color:var(--blue)} thead th.active .ar{opacity:1}
-  tbody td{padding:9px 14px; border-bottom:1px solid var(--rule); white-space:nowrap}
-  tbody tr:hover{background:#f2f1ff}
-  td.dom{font-family:var(--mono); font-weight:700}
-  td.dom::before{content:"\261E\00a0\00a0"; color:var(--blue)}
-  td.dom a.dlink{color:var(--ink); text-decoration:none}
-  td.dom a.dlink:hover{color:var(--blue); text-decoration:underline}
-  .copybtn{font-family:var(--mono); font-size:10px; line-height:1; color:#555; background:#fff;
-     border:1px solid var(--rule); border-radius:0; padding:2px 5px; margin-left:8px; cursor:pointer; vertical-align:middle}
-  .copybtn:hover{border-color:var(--ink); color:var(--ink)}
-  .copybtn.ok{color:var(--blue); border-color:var(--blue)}
-  td.num{text-align:right; font-variant-numeric:tabular-nums; color:var(--muted)}
-  .tag{display:inline-block; font-family:var(--mono); font-size:10px; letter-spacing:.03em;
-       color:var(--blue); border:1px solid var(--blue); padding:0 4px; margin-left:8px}
-  .drcoming{color:var(--blue); font-weight:700}
-  .truncnote{padding:12px 16px; color:var(--muted); font-family:var(--mono); font-size:12px;
-     background:#faf9f6; border-top:1px solid var(--rule)}
-  .empty{padding:44px 20px; text-align:center; color:var(--muted); font-family:var(--serif); font-size:17px}
+  table{border-collapse:collapse; width:100%; font-size:13px}
+  thead th{position:sticky; top:0; background:#fff; text-align:left; padding:11px 16px;
+     border-bottom:2px solid var(--ink900); font-family:var(--grotesk); text-transform:uppercase;
+     letter-spacing:.14em; font-size:10.5px; color:var(--ink500); font-weight:700; cursor:pointer; white-space:nowrap; user-select:none}
+  thead th .ar{opacity:.5; margin-left:4px}
+  thead th.active{color:var(--ink)} thead th.active .ar{opacity:1}
+  tbody td{padding:10px 16px; border-bottom:1px solid var(--ink200); white-space:nowrap; color:var(--ink700); font-family:var(--grotesk)}
+  tbody tr:hover{background:var(--ink100)}
+  td.dom{font-family:var(--mono); font-weight:700; color:var(--ink)}
+  td.dom a.dlink{color:var(--ink); text-decoration:none; border-bottom:2px solid transparent}
+  td.dom a.dlink:hover{border-bottom-color:var(--ink)}
+  .copybtn{font-family:var(--mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink700);
+     background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:2px 8px; margin-left:8px; cursor:pointer; vertical-align:middle}
+  .copybtn:hover{background:var(--ink100)}
+  .copybtn.ok{background:var(--ink); color:#fff; border-color:var(--ink)}
+  td.num{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--ink700)}
+  .tag{display:inline-block; font-family:var(--grotesk); font-size:10px; letter-spacing:.08em; text-transform:uppercase; font-weight:700;
+       color:var(--ink); background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:1px 8px; margin-left:8px}
+  .when{font-family:var(--mono); color:var(--ink500)}
+  .ttd{font-family:var(--mono); color:var(--ink700)}
+  .ttd.urgent{background:var(--ink); color:#fff; font-weight:700; border-radius:0; padding:2px 9px}
+  .ttd.soon{color:var(--ink); font-weight:700; text-decoration:underline; text-underline-offset:2px}
+  .ttd.dropped{color:var(--ink500)}
+  .truncnote{padding:12px 16px; color:var(--ink500); font-family:var(--mono); font-size:12px; background:#fff; border-top:1px solid var(--ink200)}
+  .empty{padding:44px 20px; text-align:center; color:var(--ink700); font-family:var(--serif); font-size:17px}
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<header>
-  <div class="win">
-    <div class="tb"><span>droplist.app</span><span class="x" aria-hidden="true">&times;</span></div>
-    <div class="bd">
-      <div class="mark"><span class="logo"></span><span class="brand">UK Droplist Filter</span></div>
-      <div class="sub">Load Nominet&rsquo;s daily list &rarr; a ranked, searchable shortlist of hand-reg candidates.</div>
-      <div class="tags"><span class="bkt">[.co.uk]</span><span class="bkt">[.uk]</span><span class="bkt">[Nominet]</span></div>
-      <div class="filemeta" id="filemeta"></div>
-    </div>
+<header class="mast">
+  <div class="mast-top">
+    <div class="mast-brand">DROPLIST</div>
+  </div>
+  <div class="mast-rule"></div>
+  <div class="mast-meta" style="justify-content:flex-end">
+    <div class="filemeta" id="filemeta"></div>
   </div>
 </header>
 
 <div class="wrap">
   <aside>
     <section class="win">
-      <div class="tb"><span>filters.cfg</span><span class="x" aria-hidden="true">&times;</span></div>
+      <div class="tb"><span>Filters</span></div>
       <div class="bd">
         <h2>Filters</h2>
 
@@ -210,16 +198,14 @@
 
   <main>
     <section class="win">
-      <div class="tb"><span id="winname">uk.csv.gz</span><span class="x" aria-hidden="true">&times;</span></div>
+      <div class="tb"><span id="winname">Shortlist</span></div>
       <div class="bd">
 
         <div id="dropstate">
           <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload the Nominet drop list">
-            <div class="drop-tb"><span>uk.csv.gz</span><span class="x" aria-hidden="true">&times;</span></div>
+            <div class="drop-tb"><span>uk.csv.gz</span></div>
             <div class="drop-bd">
               <div class="big">Drop today&rsquo;s Nominet list here</div>
-              <div class="small">or click to choose &mdash; accepts <span class="mono">uk.csv.gz</span> or an unzipped <span class="mono">.csv</span></div>
-              <div class="kbd">droplists.nominet.uk/current/uk.csv.gz</div>
             </div>
           </div>
           <div id="proc" style="display:none; padding:4px 4px 10px">
@@ -232,7 +218,10 @@
           <div class="statusbar">
             <div class="count" id="count">0 <small>names</small></div>
             <div class="split" id="splitline"></div>
-            <button class="btn" id="download" type="button">Download CSV</button>
+            <div class="sb-actions">
+              <button class="btn ghost" id="copyall" type="button" title="Copy all shown domains (for Namecheap bulk search)">Copy all</button>
+              <button class="btn" id="download" type="button">Download CSV</button>
+            </div>
           </div>
           <div class="tablewrap">
             <table>
@@ -240,8 +229,8 @@
                 <th data-k="domain">Domain <span class="ar"></span></th>
                 <th data-k="words">Words <span class="ar"></span></th>
                 <th data-k="letters" class="num">Letters <span class="ar"></span></th>
-                <th data-k="drop_time">Drop time (UTC) <span class="ar"></span></th>
                 <th data-k="drop_ms">Time to drop <span class="ar"></span></th>
+                <th data-k="drop_time">Drop time (UTC) <span class="ar"></span></th>
                 <th data-k="score" class="num active">Score <span class="ar">&darr;</span></th>
               </tr></thead>
               <tbody id="tbody"></tbody>
@@ -541,9 +530,10 @@ function render(){
     const tr = document.createElement("tr");
     const diff = r.drop_ms ? r.drop_ms - now : NaN;
     const dropped = r.drop_ms && diff<=0;
-    const soon = diff>0 && diff < 5*864e5;
-    const hot = soon || dropped;
+    const urgent = diff>0 && diff < 864e5;          // under 24h
+    const soon = diff>=864e5 && diff < 5*864e5;      // 1-5 days
     const until = !r.drop_ms ? '' : (dropped ? 'dropped' : fmtDur(diff));
+    const ttdCls = urgent ? 'ttd urgent' : (soon ? 'ttd soon' : (dropped ? 'ttd dropped' : 'ttd'));
     tr.innerHTML =
       '<td class="dom mono">'+
         '<a class="dlink" href="https://www.namecheap.com/domains/registration/results/?domain='+encodeURIComponent(r.domain)+'" target="_blank" rel="noopener" title="Check '+r.domain+' on Namecheap">'+r.domain+'</a>'+
@@ -551,8 +541,8 @@ function render(){
         (r.commercial?'<span class="tag">buyer</span>':'')+'</td>'+
       '<td>'+r.words+'</td>'+
       '<td class="num">'+r.letters+'</td>'+
-      '<td class="mono '+(hot?'drcoming':'')+'">'+(r.drop_time||'')+'</td>'+
-      '<td class="'+(hot?'drcoming':'')+'">'+until+'</td>'+
+      '<td><span class="'+ttdCls+'">'+until+'</span></td>'+
+      '<td class="mono when">'+(r.drop_time||'')+'</td>'+
       '<td class="num">'+r.score.toFixed(2)+'</td>';
     frag.appendChild(tr);
   }
@@ -619,6 +609,16 @@ function copyDomain(txt, btn){
 $("#tbody").addEventListener("click", e=>{
   const b = e.target.closest(".copybtn"); if(!b) return;
   e.preventDefault(); copyDomain(b.getAttribute("data-d"), b);
+});
+
+$("#copyall").addEventListener("click", e=>{
+  if(!filtered.length) return;
+  const btn=e.currentTarget, list=filtered.map(r=>r.domain).join("\n");
+  const done=()=>{ btn.textContent="Copied "+filtered.length.toLocaleString(); btn.classList.add("okall");
+    setTimeout(()=>{ btn.textContent="Copy all"; btn.classList.remove("okall"); }, 1300); };
+  if(navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(list).then(done, ()=>{ legacyCopy(list); done(); });
+  else { legacyCopy(list); done(); }
 });
 </script>
 </body>
