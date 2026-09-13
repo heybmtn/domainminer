@@ -101,7 +101,8 @@
      letter-spacing:.14em; font-size:10.5px; color:var(--ink500); font-weight:700; cursor:pointer; white-space:nowrap; user-select:none}
   thead th .ar{opacity:.5; margin-left:4px}
   thead th.active{color:var(--ink)} thead th.active .ar{opacity:1}
-  tbody td{padding:10px 16px; border-bottom:1px solid var(--ink200); white-space:nowrap; color:var(--ink700); font-family:var(--grotesk)}
+  tbody td{box-sizing:border-box; height:42px; padding:0 16px; border-bottom:1px solid var(--ink200); white-space:nowrap; color:var(--ink700); font-family:var(--grotesk); vertical-align:middle}
+  tbody tr.spacer td{height:auto; padding:0; border:0}
   tbody tr:hover{background:var(--ink100)}
   td.dom{font-family:var(--mono); font-weight:700; color:var(--ink)}
   td.dom a.dlink{color:var(--ink); text-decoration:none; border-bottom:2px solid transparent}
@@ -253,7 +254,7 @@
               <button class="btn" id="download" type="button">Download CSV</button>
             </div>
           </div>
-          <div class="tablewrap">
+          <div class="tablewrap" id="tablewrap">
             <table>
               <thead><tr>
                 <th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>
@@ -492,8 +493,8 @@ function saveFavs(){ try { localStorage.setItem("droplist_favs", JSON.stringify(
 function updateFavCount(){ const t=$("#favtab"); if(t) t.textContent = "("+favs.size+")"; }
 function updateSel(){ const n=selected.size; const el=$("#selinfo"); if(el) el.textContent = n?n.toLocaleString()+" selected":"";
   const ex=$("#exportsel"); if(ex) ex.disabled = n===0; }
-function syncSelAll(){ const sa=$("#selall"); if(!sa) return; let sel=0; filtered.forEach(r=>{ if(selected.has(r.domain)) sel++; });
-  sa.checked = filtered.length>0 && sel===filtered.length; sa.indeterminate = sel>0 && sel<filtered.length; }
+function syncSelAll(){ const sa=$("#selall"); if(!sa) return; let sel=0; viewRows.forEach(r=>{ if(selected.has(r.domain)) sel++; });
+  sa.checked = viewRows.length>0 && sel===viewRows.length; sa.indeterminate = sel>0 && sel<viewRows.length; }
 updateFavCount(); updateSel();
 
 /* ---------- file handling ---------- */
@@ -616,51 +617,61 @@ function fmtDur(ms){
   return Math.max(m,0)+"m";
 }
 
+const ROW_H = 42, BUFFER = 14, COLS = 7;
+let viewRows = [];
+
+function rowHtml(r, now){
+  const diff = r.drop_ms ? r.drop_ms - now : NaN;
+  const dropped = r.drop_ms && diff<=0;
+  const urgent = diff>0 && diff < 864e5;
+  const soon = diff>=864e5 && diff < 5*864e5;
+  const until = !r.drop_ms ? '' : (dropped ? 'dropped' : fmtDur(diff));
+  const ttdCls = urgent ? 'ttd urgent' : (soon ? 'ttd soon' : (dropped ? 'ttd dropped' : 'ttd'));
+  return '<tr'+(r.notInList?' class="notinlist"':'')+'>'+
+    '<td class="selcol"><input type="checkbox" class="selbox" data-d="'+r.domain+'"'+(selected.has(r.domain)?' checked':'')+'></td>'+
+    '<td class="dom mono">'+
+      '<button class="favbtn'+(favs.has(r.domain)?' on':'')+'" type="button" data-d="'+r.domain+'" title="Favourite" aria-label="Favourite">'+(favs.has(r.domain)?'★':'☆')+'</button>'+
+      '<a class="dlink" href="https://www.namecheap.com/domains/registration/results/?domain='+encodeURIComponent(r.domain)+'" target="_blank" rel="noopener" title="Check '+r.domain+' on Namecheap">'+r.domain+'</a>'+
+      '<button class="copybtn" type="button" data-d="'+r.domain+'" title="Copy '+r.domain+'" aria-label="Copy domain">copy</button>'+
+      (r.commercial?'<span class="tag">buyer</span>':'')+'</td>'+
+    '<td>'+r.words+'</td>'+
+    '<td class="num">'+r.letters+'</td>'+
+    '<td><span class="'+ttdCls+'">'+until+'</span></td>'+
+    '<td class="mono when">'+(r.drop_time||'')+'</td>'+
+    '<td class="num">'+(r.isWords? r.score.toFixed(2):'')+'</td>'+
+    '</tr>';
+}
+
+function renderWindow(){
+  const wrap = $("#tablewrap"), tb = $("#tbody");
+  const total = viewRows.length;
+  if(total===0){ tb.innerHTML=""; return; }
+  const thead = wrap.querySelector("thead");
+  const theadH = thead ? thead.offsetHeight : 0;
+  let start = Math.floor((wrap.scrollTop - theadH) / ROW_H) - BUFFER; if(start<0) start=0;
+  const vis = Math.ceil((wrap.clientHeight||600) / ROW_H) + BUFFER*2;
+  let end = start + vis; if(end>total) end=total;
+  const now = Date.now();
+  let html = '<tr class="spacer"><td colspan="'+COLS+'" style="height:'+(start*ROW_H)+'px;padding:0;border:0"></td></tr>';
+  for(let i=start;i<end;i++) html += rowHtml(viewRows[i], now);
+  html += '<tr class="spacer"><td colspan="'+COLS+'" style="height:'+((total-end)*ROW_H)+'px;padding:0;border:0"></td></tr>';
+  tb.innerHTML = html;
+}
+
 function render(){
   if(!allRows.length) return;
-  if(filtered.length===0 && (allRows.length && document.querySelector(".dirty"))) {}
-  // (re)compute filtered on first render
   if(filtered.length===0 && !window.__filteredOnce){ filtered = DropCore.applyFilters(allRows, readFilters()); sortFiltered(); }
   window.__filteredOnce = true;
 
-  const rows = currentRows();
-  let co=0; for(const r of rows) if(r.tld==="co.uk") co++;
-  $("#count").innerHTML = rows.length.toLocaleString()+" <small>names</small>";
-  $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk &middot; <b>"+(rows.length-co).toLocaleString()+"</b> .uk";
-  const tb = $("#tbody"); tb.innerHTML="";
-  const now = Date.now();
-  const shown = rows.slice(0, RENDER_CAP);
-  const frag = document.createDocumentFragment();
-  for(const r of shown){
-    const tr = document.createElement("tr");
-    if(r.notInList) tr.className="notinlist";
-    const diff = r.drop_ms ? r.drop_ms - now : NaN;
-    const dropped = r.drop_ms && diff<=0;
-    const urgent = diff>0 && diff < 864e5;          // under 24h
-    const soon = diff>=864e5 && diff < 5*864e5;      // 1-5 days
-    const until = !r.drop_ms ? '' : (dropped ? 'dropped' : fmtDur(diff));
-    const ttdCls = urgent ? 'ttd urgent' : (soon ? 'ttd soon' : (dropped ? 'ttd dropped' : 'ttd'));
-    tr.innerHTML =
-      '<td class="selcol"><input type="checkbox" class="selbox" data-d="'+r.domain+'"'+(selected.has(r.domain)?' checked':'')+'></td>'+
-      '<td class="dom mono">'+
-        '<button class="favbtn'+(favs.has(r.domain)?' on':'')+'" type="button" data-d="'+r.domain+'" title="Favourite" aria-label="Favourite">'+(favs.has(r.domain)?'★':'☆')+'</button>'+
-        '<a class="dlink" href="https://www.namecheap.com/domains/registration/results/?domain='+encodeURIComponent(r.domain)+'" target="_blank" rel="noopener" title="Check '+r.domain+' on Namecheap">'+r.domain+'</a>'+
-        '<button class="copybtn" type="button" data-d="'+r.domain+'" title="Copy '+r.domain+'" aria-label="Copy domain">copy</button>'+
-        (r.commercial?'<span class="tag">buyer</span>':'')+'</td>'+
-      '<td>'+r.words+'</td>'+
-      '<td class="num">'+r.letters+'</td>'+
-      '<td><span class="'+ttdCls+'">'+until+'</span></td>'+
-      '<td class="mono when">'+(r.drop_time||'')+'</td>'+
-      '<td class="num">'+(r.isWords? r.score.toFixed(2):'')+'</td>';
-    frag.appendChild(tr);
-  }
-  tb.appendChild(frag);
+  viewRows = currentRows();
+  let co=0; for(const r of viewRows) if(r.tld==="co.uk") co++;
+  $("#count").innerHTML = viewRows.length.toLocaleString()+" <small>names</small>";
+  $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk &middot; <b>"+(viewRows.length-co).toLocaleString()+"</b> .uk";
+  $("#noresults").style.display = viewRows.length? "none":"block";
+  const t=$("#trunc"); if(t) t.style.display="none";
 
-  $("#noresults").style.display = rows.length? "none":"block";
-  const t = $("#trunc");
-  if(rows.length > RENDER_CAP){ t.style.display="block"; t.textContent =
-    "Showing the top "+RENDER_CAP+" of "+rows.length.toLocaleString()+" \u2014 export includes them all."; }
-  else t.style.display="none";
+  const wrap = $("#tablewrap"); if(wrap) wrap.scrollTop = 0;
+  renderWindow();
 
   document.querySelectorAll("thead th").forEach(th=>{
     if(!th.dataset.k) return;
@@ -669,6 +680,9 @@ function render(){
   });
   syncSelAll(); updateSel();
 }
+
+(function(){ const wrap=$("#tablewrap"); if(!wrap) return; let raf=null;
+  wrap.addEventListener("scroll", ()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=null; renderWindow(); }); }); })();
 
 window.__processText = processText;
 /* manual filtering: full list shows on load; filters apply only on demand */
