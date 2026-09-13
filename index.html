@@ -94,18 +94,20 @@
   .split b{color:var(--ink)}
   .sb-actions{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap}
 
-  .tablewrap{overflow:auto; max-height:70vh}
+  .tablewrap{overflow-y:auto; overflow-x:auto; max-height:70vh}
+  table{table-layout:auto}
   table{border-collapse:collapse; width:100%; font-size:13px}
-  thead th{position:sticky; top:0; background:#fff; text-align:left; padding:11px 16px;
+  thead th{position:sticky; top:0; background:#fff; text-align:left; padding:11px 10px;
      border-bottom:2px solid var(--ink900); font-family:var(--grotesk); text-transform:uppercase;
      letter-spacing:.14em; font-size:10.5px; color:var(--ink500); font-weight:700; cursor:pointer; white-space:nowrap; user-select:none}
   thead th .ar{opacity:.5; margin-left:4px}
   thead th.active{color:var(--ink)} thead th.active .ar{opacity:1}
-  tbody td{box-sizing:border-box; height:42px; padding:0 16px; border-bottom:1px solid var(--ink200); white-space:nowrap; color:var(--ink700); font-family:var(--grotesk); vertical-align:middle}
+  tbody td{box-sizing:border-box; height:42px; padding:0 10px; border-bottom:1px solid var(--ink200); white-space:nowrap; color:var(--ink700); font-family:var(--grotesk); vertical-align:middle}
+  .wordscell{max-width:120px; overflow:hidden; text-overflow:ellipsis}
   tbody tr.spacer td{height:auto; padding:0; border:0}
   tbody tr:hover{background:var(--ink100)}
   td.dom{font-family:var(--mono); font-weight:700; color:var(--ink)}
-  td.dom a.dlink{color:var(--ink); text-decoration:none; border-bottom:2px solid transparent}
+  td.dom a.dlink{color:var(--ink); text-decoration:none; border-bottom:2px solid transparent; display:inline-block; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
   td.dom a.dlink:hover{border-bottom-color:var(--ink)}
   .copybtn{font-family:var(--mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink700);
      background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:2px 8px; margin-left:8px; cursor:pointer; vertical-align:middle}
@@ -129,6 +131,7 @@
   .favbtn.on{color:var(--ink)}
   .favcount{color:var(--ink500); font-weight:400; margin-left:2px}
   .selinfo{align-self:center; font-family:var(--mono); font-size:12px; color:var(--ink700); margin-right:2px}
+  #resetseen{color:var(--ink); text-decoration:underline}
   .tabs{display:flex; border-bottom:2px solid var(--ink900); background:#fff}
   .tab{padding:11px 16px; border:none; background:none; font-family:var(--grotesk); font-weight:700;
        font-size:13px; color:var(--ink500); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px}
@@ -212,6 +215,16 @@
           <label class="chk"><input type="checkbox" id="britishOnly"> British spelling only</label>
         </div>
 
+        <div class="fld">
+          <label class="t">New domains</label>
+          <label class="chk"><input type="checkbox" id="newOnly" checked> New since last review <span class="favcount" id="newcount"></span></label>
+          <div class="hint">Shows only names not in your last &ldquo;marked as seen&rdquo; upload. Your first upload sets the baseline.</div>
+          <div class="btnrow" style="margin-top:8px">
+            <button class="btn ghost" id="markseen" type="button">Mark all as seen</button>
+          </div>
+          <div class="hint" style="margin-top:8px"><a href="#" id="resetseen">Reset tracking</a></div>
+        </div>
+
         <button class="btn" id="apply" type="button" style="width:100%; margin-bottom:10px">Apply filters</button>
         <div class="btnrow">
           <button class="btn ghost" id="reset" type="button">Reset</button>
@@ -259,10 +272,8 @@
               <thead><tr>
                 <th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>
                 <th data-k="domain">Domain <span class="ar"></span></th>
-                <th data-k="words">Words <span class="ar"></span></th>
                 <th data-k="letters" class="num">Letters <span class="ar"></span></th>
                 <th data-k="drop_ms">Time to drop <span class="ar"></span></th>
-                <th data-k="drop_time">Drop time (UTC) <span class="ar"></span></th>
                 <th data-k="score" class="num active">Score <span class="ar">&darr;</span></th>
               </tr></thead>
               <tbody id="tbody"></tbody>
@@ -450,6 +461,7 @@
       if (f.excludeHyphens && r.hasHyphen) return false;
       if (f.britishOnly && r.hasUS) return false;
       if (f.commercialOnly && r.commercial === 0) return false;
+      if (f.newOnly && r.isNew === false) return false;
       var hay = r.domain;
       if (inc.length) {
         var hit = all ? inc.every(function (k) { return hay.indexOf(k) !== -1; })
@@ -485,6 +497,11 @@ const RENDER_CAP = 500;
 let allRows = [], filtered = [], sortKey = "score", sortDir = -1;
 const $ = s => document.querySelector(s);
 const selected = new Set();
+let seen = new Set();
+try{ const raw=localStorage.getItem("droplist_seen"); if(raw) seen=new Set(raw.split(",").filter(Boolean)); }catch(e){}
+function saveSeen(){ try{ localStorage.setItem("droplist_seen", [...seen].join(",")); }catch(e){} }
+function hd(s){ let h=5381; for(let i=0;i<s.length;i++) h=(Math.imul(h,33)^s.charCodeAt(i))>>>0; return h.toString(36); }
+function updateNewCount(n){ const el=$("#newcount"); if(el) el.textContent = (n!=null) ? "("+n.toLocaleString()+" new)" : ""; }
 let view = "list";
 let favMap = new Map();
 let favs = new Set();
@@ -527,7 +544,7 @@ async function handleFile(file){
 async function processText(text, file){
   const lines = text.split(/\r?\n/);
   const start = /^roid,/i.test(lines[0]) ? 1 : 0;
-  const N = V.size, out = [], seen = new Set();
+  const N = V.size, out = [], dedupe = new Set();
   const CH = 12000;
   for (let i=start; i<lines.length; i+=CH){
     const end = Math.min(i+CH, lines.length);
@@ -537,8 +554,8 @@ async function processText(text, file){
       const b = line.indexOf(",", a+1);
       const domain = b<0 ? line.slice(a+1) : line.slice(a+1,b);
       const drop = b<0 ? "" : line.slice(b+1);
-      if(!domain || seen.has(domain)) continue;
-      seen.add(domain);
+      if(!domain || dedupe.has(domain)) continue;
+      dedupe.add(domain);
       const c = DropCore.makeCandidate(domain, drop, V, N, 3);
       if(c){ c.drop_ms = Date.parse(c.drop_time) || 0; out.push(c); }
     }
@@ -548,17 +565,20 @@ async function processText(text, file){
   out.sort((x,y)=>y.score-x.score);
   allRows = out;
   favMap = new Map(out.map(r=>[r.domain,r]));
+  let newN=0; for(const r of out){ r.isNew = !seen.has(hd(r.domain)); if(r.isNew) newN++; }
+  updateNewCount(newN);
 
   const co = out.filter(r=>r.tld==="co.uk").length;
   const lm = file.lastModified ? new Date(file.lastModified) : null;
   $("#filemeta").innerHTML = "Loaded <strong>"+file.name+"</strong>"+(lm?" &middot; file dated "+lm.toISOString().slice(0,10):"")+
-    "<br>"+out.length.toLocaleString()+" .co.uk/.uk names from "+(lines.length-1).toLocaleString()+" dropping domains";
+    "<br>"+out.length.toLocaleString()+" .co.uk/.uk names &middot; <strong>"+newN.toLocaleString()+"</strong> new &middot; "+(lines.length-1).toLocaleString()+" dropping domains";
   $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk &middot; <b>"+(out.length-co).toLocaleString()+"</b> .uk";
 
   $("#dropstate").style.display="none";
   $("#results").style.display="block";
   sortKey="score"; sortDir=-1;
   selected.clear();
+  filtered=[]; window.__filteredOnce=false;
   render();
 }
 
@@ -577,7 +597,8 @@ function readFilters(){
     commercialOnly: $("#commonly").checked,
     excludeNumbers: $("#exNum").checked,
     excludeHyphens: $("#exHyphen").checked,
-    britishOnly: $("#britishOnly").checked
+    britishOnly: $("#britishOnly").checked,
+    newOnly: $("#newOnly").checked
   };
 }
 
@@ -617,7 +638,7 @@ function fmtDur(ms){
   return Math.max(m,0)+"m";
 }
 
-const ROW_H = 42, BUFFER = 14, COLS = 7;
+const ROW_H = 42, BUFFER = 14, COLS = 5;
 let viewRows = [];
 
 function rowHtml(r, now){
@@ -634,10 +655,8 @@ function rowHtml(r, now){
       '<a class="dlink" href="https://www.namecheap.com/domains/registration/results/?domain='+encodeURIComponent(r.domain)+'" target="_blank" rel="noopener" title="Check '+r.domain+' on Namecheap">'+r.domain+'</a>'+
       '<button class="copybtn" type="button" data-d="'+r.domain+'" title="Copy '+r.domain+'" aria-label="Copy domain">copy</button>'+
       (r.commercial?'<span class="tag">buyer</span>':'')+'</td>'+
-    '<td>'+r.words+'</td>'+
     '<td class="num">'+r.letters+'</td>'+
-    '<td><span class="'+ttdCls+'">'+until+'</span></td>'+
-    '<td class="mono when">'+(r.drop_time||'')+'</td>'+
+    '<td><span class="'+ttdCls+'" title="'+(r.drop_time||'')+'">'+until+'</span></td>'+
     '<td class="num">'+(r.isWords? r.score.toFixed(2):'')+'</td>'+
     '</tr>';
 }
@@ -694,9 +713,23 @@ $("#reset").addEventListener("click",()=>{
   $("#kw").value=""; $("#ex").value=""; $("#minlen").value=""; $("#maxlen").value="";
   document.querySelectorAll(".wc,.tld").forEach(c=>c.checked=true);
   $("#commonly").checked=false;
-  $("#exNum").checked=false; $("#exHyphen").checked=false; $("#britishOnly").checked=false;
+  $("#exNum").checked=false; $("#exHyphen").checked=false; $("#britishOnly").checked=false; $("#newOnly").checked=true;
   document.querySelector("input[name=kwmode][value=any]").checked=true;
   filtered=[]; window.__filteredOnce=false; applyAndRender();
+});
+
+$("#markseen").addEventListener("click", ()=>{
+  seen = new Set(allRows.map(r=>hd(r.domain))); saveSeen();
+  allRows.forEach(r=>r.isNew=false); updateNewCount(0);
+  runFilters();
+  const b=$("#markseen"), o=b.textContent; b.textContent="Marked seen ✓"; b.classList.add("okall");
+  setTimeout(()=>{ b.textContent=o; b.classList.remove("okall"); }, 1300);
+});
+$("#resetseen").addEventListener("click", (e)=>{
+  e.preventDefault();
+  seen = new Set(); saveSeen();
+  allRows.forEach(r=>r.isNew=true); updateNewCount(allRows.length);
+  runFilters();
 });
 
 document.querySelectorAll("thead th").forEach(th=>th.addEventListener("click",()=>{
