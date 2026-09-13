@@ -120,6 +120,21 @@
   .ttd.dropped{color:var(--ink500)}
   .truncnote{padding:12px 16px; color:var(--ink500); font-family:var(--mono); font-size:12px; background:#fff; border-top:1px solid var(--ink200)}
   .empty{padding:44px 20px; text-align:center; color:var(--ink700); font-family:var(--serif); font-size:17px}
+  th.selcol,td.selcol{width:36px; text-align:center; padding-left:14px; padding-right:0}
+  .selbox,#selall{width:15px; height:15px; accent-color:var(--ink); cursor:pointer; vertical-align:middle}
+  .favbtn{border:none; background:none; cursor:pointer; font-size:15px; line-height:1; color:var(--ink500);
+     margin-right:8px; padding:0; vertical-align:middle}
+  .favbtn:hover{color:var(--ink)}
+  .favbtn.on{color:var(--ink)}
+  .favcount{color:var(--ink500); font-weight:400; margin-left:2px}
+  .selinfo{align-self:center; font-family:var(--mono); font-size:12px; color:var(--ink700); margin-right:2px}
+  .tabs{display:flex; border-bottom:2px solid var(--ink900); background:#fff}
+  .tab{padding:11px 16px; border:none; background:none; font-family:var(--grotesk); font-weight:700;
+       font-size:13px; color:var(--ink500); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px}
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--ink); border-bottom-color:var(--ink)}
+  .tab span{color:var(--ink500); font-weight:400; margin-left:3px}
+  tr.notinlist td.dom, tr.notinlist td.dom a.dlink{color:var(--ink500)}
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -162,7 +177,9 @@
             <label class="chk"><input type="checkbox" class="wc" value="1" checked> 1</label>
             <label class="chk"><input type="checkbox" class="wc" value="2" checked> 2</label>
             <label class="chk"><input type="checkbox" class="wc" value="3" checked> 3</label>
+            <label class="chk"><input type="checkbox" class="wc" value="0" checked> other</label>
           </div>
+          <div class="hint">&ldquo;other&rdquo; = names that aren&rsquo;t 1&ndash;3 dictionary words. Untick to show only real-word names.</div>
         </div>
 
         <div class="fld">
@@ -185,6 +202,13 @@
         <div class="fld">
           <label class="chk"><input type="checkbox" id="commonly"> Buyer / service intent only</label>
           <div class="hint">Names with a commercial word (buy, hire, repair, insurance&hellip;).</div>
+        </div>
+
+        <div class="fld">
+          <label class="t">Format</label>
+          <label class="chk" style="margin-bottom:7px"><input type="checkbox" id="exNum"> Exclude numbers</label>
+          <label class="chk" style="margin-bottom:7px"><input type="checkbox" id="exHyphen"> Exclude hyphens</label>
+          <label class="chk"><input type="checkbox" id="britishOnly"> British spelling only</label>
         </div>
 
         <button class="btn" id="apply" type="button" style="width:100%; margin-bottom:10px">Apply filters</button>
@@ -215,10 +239,16 @@
         </div>
 
         <div id="results" style="display:none">
+          <div class="tabs">
+            <button class="tab active" type="button" data-view="list">Shortlist</button>
+            <button class="tab" type="button" data-view="favs">Favourites <span id="favtab">(0)</span></button>
+          </div>
           <div class="statusbar">
             <div class="count" id="count">0 <small>names</small></div>
             <div class="split" id="splitline"></div>
             <div class="sb-actions">
+              <span class="selinfo" id="selinfo"></span>
+              <button class="btn ghost" id="exportsel" type="button" disabled title="Export selected rows to CSV">Export selected</button>
               <button class="btn ghost" id="copyall" type="button" title="Copy all shown domains (for Namecheap bulk search)">Copy all</button>
               <button class="btn" id="download" type="button">Download CSV</button>
             </div>
@@ -226,6 +256,7 @@
           <div class="tablewrap">
             <table>
               <thead><tr>
+                <th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>
                 <th data-k="domain">Domain <span class="ar"></span></th>
                 <th data-k="words">Words <span class="ar"></span></th>
                 <th data-k="letters" class="num">Letters <span class="ar"></span></th>
@@ -253,8 +284,7 @@
 
 </script>
 <script>
-/* core.js — drop-list filtering logic (no DOM). Mirrors the Python script.
-   Runs in both Node (for testing) and the browser (injected into the page). */
+/* core.js — drop-list logic (no DOM). Keeps ALL .co.uk/.uk names; flags word-names. */
 (function (root) {
   "use strict";
 
@@ -270,22 +300,32 @@
     "survey surveys surveyors valuation valuations assessment assessments consultancy consultants " +
     "installation installations fitters shop store supplier suppliers hosting recruitment").split(" "));
 
-  // Build a rank map (word -> position; lower = more common) from a freq-ordered list.
+  var AMERICAN = new Set(("color colors colored coloring favor favors favorite favorites favored honor " +
+    "honored honors labor labors neighbor neighbors humor humors flavor flavors savor harbor rumor " +
+    "tumor tumors vapor odor armor behavior behaviors endeavor splendor vigor valor parlor savior " +
+    "center centers centered theater theaters meter meters liter liters fiber fibers caliber somber " +
+    "specter saber luster organize organizes organized organizing organization organizations realize " +
+    "realized recognize recognized apologize analyze analyzed paralyze memorize minimize maximize " +
+    "prioritize customize categorize summarize emphasize criticize specialize standardize modernize " +
+    "optimize capitalize generalize symbolize visualize monetize digitize itemize mobilize normalize " +
+    "penalize sanitize socialize stabilize sterilize utilize authorize colonize familiarize " +
+    "hospitalize legalize localize popularize publicize subsidize vaporize catalog catalogs dialog " +
+    "dialogs analog defense offense pretense traveler travelers traveled traveling canceled canceling " +
+    "labeled labeling modeling jeweler jewelers jewelry marvelous counselor counselors gray grays " +
+    "aluminum donut donuts pajamas mustache omelet plow plows mold molds skeptic skeptical sulfur " +
+    "maneuver airplane airplanes").split(" "));
+
   function buildVocab(words) {
     var v = new Map();
     for (var i = 0; i < words.length; i++) v.set(words[i], i);
     return v;
   }
 
-  // Split a label into the fewest real words (1..maxWords). Among splits with the
-  // same count, prefer the one whose rarest word is most common. Returns array or null.
   function segment(label, V, maxWords) {
-    var n = label.length;
-    // 1 word
+    var n = label.length, i, j;
     if (V.has(label)) return [label];
-    // 2 words
     var best = null, bestKey = Infinity;
-    for (var i = 1; i < n; i++) {
+    for (i = 1; i < n; i++) {
       var a = label.slice(0, i), b = label.slice(i);
       var ra = V.get(a); if (ra === undefined) continue;
       var rb = V.get(b); if (rb === undefined) continue;
@@ -294,10 +334,9 @@
     }
     if (best) return best;
     if (maxWords < 3) return null;
-    // 3 words
     for (i = 1; i < n - 1; i++) {
       var a1 = label.slice(0, i); var r1 = V.get(a1); if (r1 === undefined) continue;
-      for (var j = i + 1; j < n; j++) {
+      for (j = i + 1; j < n; j++) {
         var b1 = label.slice(i, j); var r2 = V.get(b1); if (r2 === undefined) continue;
         var c1 = label.slice(j); var r3 = V.get(c1); if (r3 === undefined) continue;
         var k = Math.max(r1, r2, r3);
@@ -307,12 +346,33 @@
     return best;
   }
 
-  function commonness(rank, N) {          // approx word "commonness" from rank
+  function commonness(rank, N) {
     var cz = 6.5 - (rank / N) * 3.5;
     return cz < 3 ? 3 : (cz > 6.5 ? 6.5 : cz);
   }
 
-  // Turn a raw {domain, drop_time} into a scored candidate, or null if unwanted.
+  // Break label into tokens (split hyphens; separate letter/digit runs; segment letter runs).
+  // Returns {tokens:[{t,num}], words:[...]} or null if not fully word-composable.
+  function tokenise(label, V, maxWords) {
+    var parts = label.split("-"), tokens = [], p, part, runs, r, run, seg, w;
+    for (p = 0; p < parts.length; p++) {
+      part = parts[p];
+      if (!part) return null;
+      runs = part.match(/[a-z]+|[0-9]+/g);
+      if (!runs || runs.join("") !== part) return null;
+      for (r = 0; r < runs.length; r++) {
+        run = runs[r];
+        if (run.charCodeAt(0) >= 48 && run.charCodeAt(0) <= 57) { tokens.push({ t: run, num: true }); }
+        else { seg = segment(run, V, maxWords); if (!seg) return null;
+               for (w = 0; w < seg.length; w++) tokens.push({ t: seg[w], num: false }); }
+      }
+    }
+    var words = [];
+    for (var t = 0; t < tokens.length; t++) if (!tokens[t].num) words.push(tokens[t].t);
+    return { tokens: tokens, words: words };
+  }
+
+  // Build a row for ANY valid .co.uk/.uk name. Word-names get words/score; others get isWords=false.
   function makeCandidate(domain, dropTime, V, N, maxWords) {
     domain = domain.trim().toLowerCase();
     var tld = null, label = null;
@@ -320,37 +380,43 @@
     else if (domain.endsWith(".uk")) { tld = "uk"; label = domain.slice(0, -3); if (label.indexOf(".") !== -1) return null; }
     else return null;
     if (label.indexOf(".") !== -1) return null;
-    if (label.length < 3 || label.length > 25) return null;
-    if (/[0-9-]/.test(label)) return null;
+    var L = label.length;
+    if (L < 1 || L > 63) return null;
+    if (!/^[a-z0-9-]+$/.test(label)) return null;
 
-    var tokens = segment(label, V, maxWords);
-    if (!tokens) return null;
+    var hasHyphen = label.indexOf("-") !== -1;
+    var hasDigit = /[0-9]/.test(label);
+    var isWords = false, wordsStr = "", wcount = 0, score = 0, commercial = 0, hasUS = false;
 
-    var content = [], stops = 0, commercial = 0, sumCz = 0;
-    for (var t = 0; t < tokens.length; t++) {
-      var w = tokens[t];
-      if (STOPWORDS.has(w)) stops++;
-      else { content.push(w); sumCz += commonness(V.get(w), N); }
-      if (COMMERCIAL.has(w)) commercial++;
+    if (L <= 25) {
+      var tk = tokenise(label, V, maxWords);
+      if (tk && tk.words.length >= 1 && tk.words.length <= maxWords) {
+        var content = [], stops = 0, sumCz = 0, q, word;
+        for (q = 0; q < tk.words.length; q++) {
+          word = tk.words[q];
+          if (STOPWORDS.has(word)) stops++;
+          else { content.push(word); sumCz += commonness(V.get(word), N); }
+          if (COMMERCIAL.has(word)) commercial++;
+          if (AMERICAN.has(word)) hasUS = true;
+        }
+        if (content.length >= 1 && stops <= content.length) {
+          isWords = true; wcount = tk.words.length;
+          score = Math.round((2 * content.length + 4 * commercial - 2.5 * stops + sumCz / content.length - 0.4 * tk.words.length) * 100) / 100;
+          wordsStr = tk.tokens.map(function (x) { return x.t; }).join(" ");
+        } else { commercial = 0; hasUS = false; }
+      }
     }
-    if (content.length === 0) return null;
-    if (stops > content.length) return null;
 
-    var avgCz = sumCz / content.length;
-    var score = 2 * content.length + 4 * commercial - 2.5 * stops + avgCz - 0.4 * tokens.length;
     return {
-      domain: domain, tld: tld, words: tokens.join(" "),
-      word_count: tokens.length, letters: label.length,
-      score: Math.round(score * 100) / 100, commercial: commercial, drop_time: dropTime
+      domain: domain, tld: tld, words: wordsStr, word_count: wcount, letters: L,
+      score: score, commercial: commercial, drop_time: dropTime,
+      hasDigit: hasDigit, hasHyphen: hasHyphen, hasUS: hasUS, isWords: isWords
     };
   }
 
-  // Parse the Nominet CSV text (roid,domain,drop_time) into scored candidates.
   function processCsv(text, V, opts) {
-    opts = opts || {}; var maxWords = opts.maxWords || 3;
-    var N = V.size;
-    var lines = text.split(/\r?\n/);
-    var out = [], seen = new Set();
+    opts = opts || {}; var maxWords = opts.maxWords || 3, N = V.size;
+    var lines = text.split(/\r?\n/), out = [], seen = new Set();
     var start = /^roid,/i.test(lines[0]) ? 1 : 0;
     for (var i = start; i < lines.length; i++) {
       var line = lines[i]; if (!line) continue;
@@ -367,16 +433,21 @@
     return out;
   }
 
-  // Apply the user's live filters to an already-scored list.
   function applyFilters(rows, f) {
     var inc = (f.include || []).map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
     var exc = (f.exclude || []).map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
     var all = f.includeMode === "all";
     return rows.filter(function (r) {
       if (f.tlds && !f.tlds.has(r.tld)) return false;
-      if (f.wordCounts && f.wordCounts.size && !f.wordCounts.has(r.word_count)) return false;
+      if (f.wordCounts && f.wordCounts.size) {
+        var key = (r.word_count >= 1 && r.word_count <= 3) ? r.word_count : 0;
+        if (!f.wordCounts.has(key)) return false;
+      }
       if (f.minLen != null && r.letters < f.minLen) return false;
       if (f.maxLen != null && r.letters > f.maxLen) return false;
+      if (f.excludeNumbers && r.hasDigit) return false;
+      if (f.excludeHyphens && r.hasHyphen) return false;
+      if (f.britishOnly && r.hasUS) return false;
       if (f.commercialOnly && r.commercial === 0) return false;
       var hay = r.domain;
       if (inc.length) {
@@ -397,9 +468,9 @@
     return head + "\n" + body.join("\n") + "\n";
   }
 
-  var api = { buildVocab: buildVocab, segment: segment, makeCandidate: makeCandidate,
+  var api = { buildVocab: buildVocab, segment: segment, tokenise: tokenise, makeCandidate: makeCandidate,
               processCsv: processCsv, applyFilters: applyFilters, toCsv: toCsv,
-              STOPWORDS: STOPWORDS, COMMERCIAL: COMMERCIAL };
+              STOPWORDS: STOPWORDS, COMMERCIAL: COMMERCIAL, AMERICAN: AMERICAN };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.DropCore = api;
 })(typeof window !== "undefined" ? window : this);
@@ -412,6 +483,18 @@ const RENDER_CAP = 500;
 
 let allRows = [], filtered = [], sortKey = "score", sortDir = -1;
 const $ = s => document.querySelector(s);
+const selected = new Set();
+let view = "list";
+let favMap = new Map();
+let favs = new Set();
+try { const raw = localStorage.getItem("droplist_favs"); if(raw) favs = new Set(JSON.parse(raw)); } catch(e){}
+function saveFavs(){ try { localStorage.setItem("droplist_favs", JSON.stringify([...favs])); } catch(e){} }
+function updateFavCount(){ const t=$("#favtab"); if(t) t.textContent = "("+favs.size+")"; }
+function updateSel(){ const n=selected.size; const el=$("#selinfo"); if(el) el.textContent = n?n.toLocaleString()+" selected":"";
+  const ex=$("#exportsel"); if(ex) ex.disabled = n===0; }
+function syncSelAll(){ const sa=$("#selall"); if(!sa) return; let sel=0; filtered.forEach(r=>{ if(selected.has(r.domain)) sel++; });
+  sa.checked = filtered.length>0 && sel===filtered.length; sa.indeterminate = sel>0 && sel<filtered.length; }
+updateFavCount(); updateSel();
 
 /* ---------- file handling ---------- */
 const drop = $("#drop"), fileInput = $("#file");
@@ -463,16 +546,18 @@ async function processText(text, file){
   }
   out.sort((x,y)=>y.score-x.score);
   allRows = out;
+  favMap = new Map(out.map(r=>[r.domain,r]));
 
   const co = out.filter(r=>r.tld==="co.uk").length;
   const lm = file.lastModified ? new Date(file.lastModified) : null;
   $("#filemeta").innerHTML = "Loaded <strong>"+file.name+"</strong>"+(lm?" &middot; file dated "+lm.toISOString().slice(0,10):"")+
-    "<br>"+out.length.toLocaleString()+" candidates from "+(lines.length-1).toLocaleString()+" domains";
+    "<br>"+out.length.toLocaleString()+" .co.uk/.uk names from "+(lines.length-1).toLocaleString()+" dropping domains";
   $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk &middot; <b>"+(out.length-co).toLocaleString()+"</b> .uk";
 
   $("#dropstate").style.display="none";
   $("#results").style.display="block";
   sortKey="score"; sortDir=-1;
+  selected.clear();
   render();
 }
 
@@ -488,7 +573,10 @@ function readFilters(){
     include: $("#kw").value.split(","),
     includeMode: document.querySelector("input[name=kwmode]:checked").value,
     exclude: $("#ex").value.split(","),
-    commercialOnly: $("#commonly").checked
+    commercialOnly: $("#commonly").checked,
+    excludeNumbers: $("#exNum").checked,
+    excludeHyphens: $("#exHyphen").checked,
+    britishOnly: $("#britishOnly").checked
   };
 }
 
@@ -498,14 +586,28 @@ function applyAndRender(){
   render();
 }
 
-function sortFiltered(){
+function sortArr(arr){
   const k = sortKey, d = sortDir;
-  filtered.sort((a,b)=>{
+  arr.sort((a,b)=>{
     let x=a[k], y=b[k];
-    if(typeof x==="string"){ return d*x.localeCompare(y); }
+    if(typeof x==="string" || typeof y==="string"){ return d*String(x).localeCompare(String(y)); }
     return d*(x-y);
   });
 }
+function sortFiltered(){ sortArr(filtered); }
+function favRows(){
+  return [...favs].map(d=>{
+    const r = favMap.get(d);
+    if(r) return r;
+    let tld="uk", label=d;
+    if(d.endsWith(".co.uk")){ tld="co.uk"; label=d.slice(0,-6); }
+    else if(d.endsWith(".uk")){ tld="uk"; label=d.slice(0,-3); }
+    return {domain:d, tld:tld, words:"", word_count:0, letters:label.length, score:0,
+            commercial:0, drop_time:"", drop_ms:0, hasDigit:false, hasHyphen:false, hasUS:false,
+            isWords:false, notInList:true};
+  });
+}
+function currentRows(){ if(view==="favs"){ const a=favRows(); sortArr(a); return a; } return filtered; }
 
 function fmtDur(ms){
   const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5), m=Math.floor(ms%36e5/6e4);
@@ -521,13 +623,17 @@ function render(){
   if(filtered.length===0 && !window.__filteredOnce){ filtered = DropCore.applyFilters(allRows, readFilters()); sortFiltered(); }
   window.__filteredOnce = true;
 
-  $("#count").innerHTML = filtered.length.toLocaleString()+" <small>names</small>";
+  const rows = currentRows();
+  let co=0; for(const r of rows) if(r.tld==="co.uk") co++;
+  $("#count").innerHTML = rows.length.toLocaleString()+" <small>names</small>";
+  $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk &middot; <b>"+(rows.length-co).toLocaleString()+"</b> .uk";
   const tb = $("#tbody"); tb.innerHTML="";
   const now = Date.now();
-  const view = filtered.slice(0, RENDER_CAP);
+  const shown = rows.slice(0, RENDER_CAP);
   const frag = document.createDocumentFragment();
-  for(const r of view){
+  for(const r of shown){
     const tr = document.createElement("tr");
+    if(r.notInList) tr.className="notinlist";
     const diff = r.drop_ms ? r.drop_ms - now : NaN;
     const dropped = r.drop_ms && diff<=0;
     const urgent = diff>0 && diff < 864e5;          // under 24h
@@ -535,7 +641,9 @@ function render(){
     const until = !r.drop_ms ? '' : (dropped ? 'dropped' : fmtDur(diff));
     const ttdCls = urgent ? 'ttd urgent' : (soon ? 'ttd soon' : (dropped ? 'ttd dropped' : 'ttd'));
     tr.innerHTML =
+      '<td class="selcol"><input type="checkbox" class="selbox" data-d="'+r.domain+'"'+(selected.has(r.domain)?' checked':'')+'></td>'+
       '<td class="dom mono">'+
+        '<button class="favbtn'+(favs.has(r.domain)?' on':'')+'" type="button" data-d="'+r.domain+'" title="Favourite" aria-label="Favourite">'+(favs.has(r.domain)?'★':'☆')+'</button>'+
         '<a class="dlink" href="https://www.namecheap.com/domains/registration/results/?domain='+encodeURIComponent(r.domain)+'" target="_blank" rel="noopener" title="Check '+r.domain+' on Namecheap">'+r.domain+'</a>'+
         '<button class="copybtn" type="button" data-d="'+r.domain+'" title="Copy '+r.domain+'" aria-label="Copy domain">copy</button>'+
         (r.commercial?'<span class="tag">buyer</span>':'')+'</td>'+
@@ -543,21 +651,23 @@ function render(){
       '<td class="num">'+r.letters+'</td>'+
       '<td><span class="'+ttdCls+'">'+until+'</span></td>'+
       '<td class="mono when">'+(r.drop_time||'')+'</td>'+
-      '<td class="num">'+r.score.toFixed(2)+'</td>';
+      '<td class="num">'+(r.isWords? r.score.toFixed(2):'')+'</td>';
     frag.appendChild(tr);
   }
   tb.appendChild(frag);
 
-  $("#noresults").style.display = filtered.length? "none":"block";
+  $("#noresults").style.display = rows.length? "none":"block";
   const t = $("#trunc");
-  if(filtered.length > RENDER_CAP){ t.style.display="block"; t.textContent =
-    "Showing the top "+RENDER_CAP+" of "+filtered.length.toLocaleString()+" \u2014 the Download CSV includes them all."; }
+  if(rows.length > RENDER_CAP){ t.style.display="block"; t.textContent =
+    "Showing the top "+RENDER_CAP+" of "+rows.length.toLocaleString()+" \u2014 export includes them all."; }
   else t.style.display="none";
 
   document.querySelectorAll("thead th").forEach(th=>{
+    if(!th.dataset.k) return;
     const on = th.dataset.k===sortKey; th.classList.toggle("active",on);
-    th.querySelector(".ar").innerHTML = on ? (sortDir<0?"\u2193":"\u2191") : "";
+    const ar=th.querySelector(".ar"); if(ar) ar.innerHTML = on ? (sortDir<0?"↓":"↑") : "";
   });
+  syncSelAll(); updateSel();
 }
 
 window.__processText = processText;
@@ -570,26 +680,29 @@ $("#reset").addEventListener("click",()=>{
   $("#kw").value=""; $("#ex").value=""; $("#minlen").value=""; $("#maxlen").value="";
   document.querySelectorAll(".wc,.tld").forEach(c=>c.checked=true);
   $("#commonly").checked=false;
+  $("#exNum").checked=false; $("#exHyphen").checked=false; $("#britishOnly").checked=false;
   document.querySelector("input[name=kwmode][value=any]").checked=true;
   filtered=[]; window.__filteredOnce=false; applyAndRender();
 });
 
 document.querySelectorAll("thead th").forEach(th=>th.addEventListener("click",()=>{
   const k=th.dataset.k;
+  if(!k) return;
   if(sortKey===k) sortDir=-sortDir; else { sortKey=k; sortDir = (k==="domain"||k==="words"||k==="drop_time"||k==="drop_ms")?1:-1; }
   sortFiltered(); render();
 }));
 
-$("#download").addEventListener("click",()=>{
-  if(!filtered.length) return;
-  const csv = DropCore.toCsv(filtered);
-  const blob = new Blob([csv], {type:"text/csv"});
+function downloadCsv(rows, tag){
+  if(!rows.length) return;
+  const blob = new Blob([DropCore.toCsv(rows)], {type:"text/csv"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const d = new Date().toISOString().slice(0,10);
-  a.href=url; a.download="shortlist-"+d+".csv"; a.click();
+  a.href=url; a.download=(tag||"shortlist")+"-"+d+".csv"; a.click();
   URL.revokeObjectURL(url);
-});
+}
+$("#download").addEventListener("click", ()=> downloadCsv(currentRows(), view==="favs"?"favourites":"shortlist"));
+$("#exportsel").addEventListener("click", ()=> downloadCsv(allRows.filter(r=>selected.has(r.domain)), "selected"));
 
 /* click "copy" to copy a domain; click the domain to open it on Namecheap */
 function legacyCopy(txt){
@@ -606,15 +719,37 @@ function copyDomain(txt, btn){
     navigator.clipboard.writeText(txt).then(flash, ()=>{ legacyCopy(txt); flash(); });
   else { legacyCopy(txt); flash(); }
 }
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click", ()=>{
+  view = t.getAttribute("data-view");
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active", x===t));
+  render();
+}));
 $("#tbody").addEventListener("click", e=>{
-  const b = e.target.closest(".copybtn"); if(!b) return;
-  e.preventDefault(); copyDomain(b.getAttribute("data-d"), b);
+  const cp = e.target.closest(".copybtn");
+  if(cp){ e.preventDefault(); copyDomain(cp.getAttribute("data-d"), cp); return; }
+  const fv = e.target.closest(".favbtn");
+  if(fv){ e.preventDefault(); const d=fv.getAttribute("data-d");
+    if(favs.has(d)){ favs.delete(d); fv.classList.remove("on"); fv.textContent="☆"; }
+    else { favs.add(d); fv.classList.add("on"); fv.textContent="★"; }
+    saveFavs(); updateFavCount(); if(view==="favs") render(); }
+});
+$("#tbody").addEventListener("change", e=>{
+  const sb = e.target.closest(".selbox"); if(!sb) return;
+  const d=sb.getAttribute("data-d");
+  if(sb.checked) selected.add(d); else selected.delete(d);
+  updateSel(); syncSelAll();
+});
+$("#selall").addEventListener("change", e=>{
+  const on=e.target.checked;
+  currentRows().forEach(r=>{ if(on) selected.add(r.domain); else selected.delete(r.domain); });
+  document.querySelectorAll("#tbody .selbox").forEach(cb=>{ cb.checked = selected.has(cb.getAttribute("data-d")); });
+  updateSel();
 });
 
 $("#copyall").addEventListener("click", e=>{
-  if(!filtered.length) return;
-  const btn=e.currentTarget, list=filtered.map(r=>r.domain).join("\n");
-  const done=()=>{ btn.textContent="Copied "+filtered.length.toLocaleString(); btn.classList.add("okall");
+  const btn=e.currentTarget, rows=currentRows(); if(!rows.length) return;
+  const list=rows.map(r=>r.domain).join("\n");
+  const done=()=>{ btn.textContent="Copied "+rows.length.toLocaleString(); btn.classList.add("okall");
     setTimeout(()=>{ btn.textContent="Copy all"; btn.classList.remove("okall"); }, 1300); };
   if(navigator.clipboard && navigator.clipboard.writeText)
     navigator.clipboard.writeText(list).then(done, ()=>{ legacyCopy(list); done(); });
