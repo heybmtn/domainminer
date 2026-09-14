@@ -37,12 +37,19 @@
   .bd{padding:18px; background:var(--surface)}
   h2{display:none}
 
-  /* layout */
+  /* layout — filters bar on top, shortlist full-width below */
   .wrap{max-width:1200px; margin:20px auto 40px; padding:0 22px;
-        display:grid; grid-template-columns:300px 1fr; gap:20px; align-items:start}
-  @media(max-width:860px){ .wrap{grid-template-columns:1fr} }
-  aside{position:sticky; top:20px}
-  @media(max-width:860px){ aside{position:static} }
+        display:flex; flex-direction:column; gap:20px}
+  aside{position:static}
+
+  /* horizontal filter bar: fields flow into a responsive grid */
+  aside .bd{padding:16px 18px}
+  .filtergrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+        gap:14px 22px; align-items:start}
+  .filtergrid .fld{margin-bottom:0}
+  .filteractions{display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+        margin-top:16px; padding-top:16px; border-top:2px solid var(--ink200)}
+  .filteractions .btn{width:auto; margin:0}
 
   /* eyebrow-style form labels */
   .fld{margin-bottom:16px}
@@ -160,6 +167,7 @@
       <div class="bd">
         <h2>Filters</h2>
 
+        <div class="filtergrid">
         <div class="fld">
           <label class="t" for="kw">Keywords (include)</label>
           <input type="text" id="kw" placeholder="insurance, repair, london">
@@ -225,8 +233,10 @@
           <div class="hint" style="margin-top:8px"><a href="#" id="resetseen">Reset tracking</a></div>
         </div>
 
-        <button class="btn" id="apply" type="button" style="width:100%; margin-bottom:10px">Apply filters</button>
-        <div class="btnrow">
+        </div><!-- /filtergrid -->
+
+        <div class="filteractions">
+          <button class="btn" id="apply" type="button">Apply filters</button>
           <button class="btn ghost" id="reset" type="button">Reset</button>
           <button class="btn ghost" id="loadnew" type="button">Load file</button>
         </div>
