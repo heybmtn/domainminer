@@ -12,7 +12,9 @@ npm start
 
 Open http://localhost:3847
 
-Nominet filtering works without an API key. **Check SEO** and **Find expiring** need `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD`.
+Live: https://domainminer.pages.dev
+
+Nominet filtering works without an API key. **Check SEO** and **Find expiring** need `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD`. On Cloudflare Pages, add those as encrypted environment variables for Production and Preview (Settings → Variables and Secrets).
 
 ## SEO list
 
