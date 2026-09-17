@@ -861,6 +861,8 @@ function applyViewChrome(){
   const seo = view==="seo";
   const bar=$("#seobar"); if(bar) bar.style.display = seo ? "block" : "none";
   const add=$("#addtoseo"); if(add) add.style.display = seo ? "none" : "";
+  const wn=$("#winname");
+  if(wn) wn.textContent = view==="seo" ? "SEO list" : (view==="favs" ? "Favourites" : "Shortlist");
   if(seo){
     if(["score","letters","drop_ms"].indexOf(sortKey)>=0){ sortKey="buyScore"; sortDir=-1; }
   } else {
