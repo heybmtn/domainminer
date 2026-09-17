@@ -20,30 +20,25 @@
   ::selection{background:var(--ink); color:#fff}
   .mono{font-family:var(--mono)}
 
-  /* masthead */
-  .mast{max-width:1200px; margin:28px auto 0; padding:0 22px}
-  .mast-top{display:flex; justify-content:space-between; align-items:flex-start; gap:16px}
-  .mast-brand{font-family:var(--grotesk); font-weight:800; font-size:34px; letter-spacing:-.03em; line-height:.95}
-  .mast-rule{height:2px; background:var(--ink900); margin:16px 0}
-  .mast-meta{display:flex; justify-content:space-between; align-items:baseline; margin-top:12px; flex-wrap:wrap; gap:6px}
+  /* compact masthead */
+  .mast{margin:0; padding:10px 22px; background:#fff; border-bottom:2px solid var(--ink900)}
+  .mast-top{display:flex; justify-content:space-between; align-items:center; gap:16px}
+  .mast-brand{font-family:var(--grotesk); font-weight:800; font-size:22px; letter-spacing:-.03em; line-height:1}
+  .mast-tools{display:flex; align-items:center; gap:14px; flex-wrap:wrap; justify-content:flex-end}
   .filemeta{font-family:var(--mono); font-size:12px; color:var(--ink500); text-align:right}
   .filemeta strong{color:var(--ink)}
 
   /* cards: 2px border signature, black panel header */
-  .win{background:var(--surface); border:2px solid var(--ink900); border-radius:0; overflow:hidden}
-  .tb{background:var(--ink); color:#fff; padding:12px 16px; font-family:var(--grotesk);
+  .win{background:var(--surface); border:0; border-radius:0; overflow:hidden}
+  .tb{background:var(--ink); color:#fff; padding:10px 16px; font-family:var(--grotesk);
       font-weight:700; font-size:14px; letter-spacing:.01em}
   .x{display:none}
-  .bd{padding:18px; background:var(--surface)}
+  .bd{padding:0; background:var(--surface)}
   h2{display:none}
 
-  /* layout — filters bar on top, shortlist full-width below */
-  .wrap{max-width:1200px; margin:20px auto 40px; padding:0 22px;
-        display:flex; flex-direction:column; gap:20px}
+  .wrap{margin:0; padding:0; display:flex; flex-direction:column}
   aside{position:static}
 
-  /* horizontal filter bar: fields flow into a responsive grid */
-  aside .bd{padding:16px 18px}
   .filtergrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
         gap:14px 22px; align-items:start}
   .filtergrid .fld{margin-bottom:0}
@@ -51,7 +46,6 @@
         margin-top:16px; padding-top:16px; border-top:2px solid var(--ink200)}
   .filteractions .btn{width:auto; margin:0}
 
-  /* eyebrow-style form labels */
   .fld{margin-bottom:16px}
   .fld label.t{display:block; font-family:var(--grotesk); font-weight:700; font-size:11px;
      letter-spacing:.16em; text-transform:uppercase; color:var(--ink500); margin-bottom:7px}
@@ -66,7 +60,6 @@
   .chk input{accent-color:var(--ink); width:16px; height:16px}
   .hint{color:var(--ink700); font-size:12px; margin-top:5px}
 
-  /* pill controls */
   .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:9px 16px;
        border:2px solid var(--ink); border-radius:0; background:var(--ink); color:#fff;
        font-family:var(--grotesk); font-weight:700; font-size:13px; cursor:pointer}
@@ -78,7 +71,6 @@
   .btn[disabled]{opacity:.4; cursor:not-allowed}
   .btnrow{display:flex; gap:10px; margin-top:6px}
 
-  /* results / 1-bit drop panel */
   main{min-width:0}
   main .bd{padding:0}
   #dropstate{padding:16px}
@@ -94,35 +86,35 @@
   .progress i{display:block; height:100%; width:0; background:var(--ink); transition:width .1s}
   #proc .hint{font-family:var(--mono); padding:0 4px}
 
-  .statusbar{display:flex; align-items:center; gap:16px; padding:16px 18px; border-bottom:2px solid var(--ink900); background:#fff; flex-wrap:wrap}
+  .statusbar{display:flex; align-items:center; gap:16px; padding:12px 18px; border-bottom:2px solid var(--ink900); background:#fff; flex-wrap:wrap}
   .count{font-family:var(--mono); font-weight:700; font-size:22px; color:var(--ink)}
   .count small{font-family:var(--grotesk); font-size:11px; color:var(--ink500); font-weight:700; letter-spacing:.14em; text-transform:uppercase}
   .split{font-family:var(--mono); font-size:13px; color:var(--ink500)}
   .split b{color:var(--ink)}
   .sb-actions{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap}
 
-  .tablewrap{overflow-y:auto; overflow-x:auto; max-height:70vh}
+  .tablewrap{overflow-y:auto; overflow-x:auto; max-height:calc(100vh - 220px)}
   table{table-layout:auto}
-  table{border-collapse:collapse; width:100%; font-size:13px}
+  table{border-collapse:collapse; width:100%}
+  table{font-size:13px}
   thead th{position:sticky; top:0; background:#fff; text-align:left; padding:11px 10px;
      border-bottom:2px solid var(--ink900); font-family:var(--grotesk); text-transform:uppercase;
      letter-spacing:.14em; font-size:10.5px; color:var(--ink500); font-weight:700; cursor:pointer; white-space:nowrap; user-select:none}
   thead th .ar{opacity:.5; margin-left:4px}
   thead th.active{color:var(--ink)} thead th.active .ar{opacity:1}
   tbody td{box-sizing:border-box; height:42px; padding:0 10px; border-bottom:1px solid var(--ink200); white-space:nowrap; color:var(--ink700); font-family:var(--grotesk); vertical-align:middle}
-  .wordscell{max-width:120px; overflow:hidden; text-overflow:ellipsis}
+  .wordscell{max-width:180px; overflow:hidden; text-overflow:ellipsis; font-family:var(--mono); color:var(--ink)}
   tbody tr.spacer td{height:auto; padding:0; border:0}
   tbody tr:hover{background:var(--ink100)}
   td.dom{font-family:var(--mono); font-weight:700; color:var(--ink)}
-  td.dom a.dlink{color:var(--ink); text-decoration:none; border-bottom:2px solid transparent; display:inline-block; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
-  td.dom a.dlink:hover{border-bottom-color:var(--ink)}
+  td.dom .dname{display:inline-block; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
   .copybtn{font-family:var(--mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink700);
-     background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:2px 8px; margin-left:8px; cursor:pointer; vertical-align:middle}
+    background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:2px 8px; margin-left:8px; cursor:pointer; vertical-align:middle}
   .copybtn:hover{background:var(--ink100)}
   .copybtn.ok{background:var(--ink); color:#fff; border-color:var(--ink)}
   td.num{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--ink700)}
   .tag{display:inline-block; font-family:var(--grotesk); font-size:10px; letter-spacing:.08em; text-transform:uppercase; font-weight:700;
-       color:var(--ink); background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:1px 8px; margin-left:8px}
+       color:var(--ink); background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:1px 8px; margin-right:6px}
   .when{font-family:var(--mono); color:var(--ink500)}
   .ttd{font-family:var(--mono); color:var(--ink700)}
   .ttd.urgent{background:var(--ink); color:#fff; font-weight:700; border-radius:0; padding:2px 9px}
@@ -145,14 +137,28 @@
   .tab:hover{color:var(--ink)}
   .tab.active{color:var(--ink); border-bottom-color:var(--ink)}
   .tab span{color:var(--ink500); font-weight:400; margin-left:3px}
-  tr.notinlist td.dom, tr.notinlist td.dom a.dlink{color:var(--ink500)}
-  .seobar{padding:16px 18px; border-bottom:2px solid var(--ink900); background:#fff}
-  .seobar textarea{width:100%; min-height:72px; padding:9px 11px; border:2px solid var(--ink900);
+  tr.notinlist td.dom, tr.notinlist td.dom .dname{color:var(--ink500)}
+  .chips{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 18px; border-bottom:2px solid var(--ink900); background:#fff}
+  .chip{display:inline-flex; align-items:center; padding:6px 12px; border:2px solid var(--ink900); background:#fff;
+        font-family:var(--grotesk); font-weight:700; font-size:12px; cursor:pointer; color:var(--ink)}
+  .chip:hover{background:var(--ink100)}
+  .chip.on{background:var(--ink); color:#fff; border-color:var(--ink)}
+  .chips .grow{margin-left:auto}
+  #filterdrawer{display:none; padding:16px 18px; border-bottom:2px solid var(--ink900); background:#fff}
+  #filterdrawer.open{display:block}
+  .seobar{padding:14px 18px; border-bottom:2px solid var(--ink900); background:#fff}
+  .seobar textarea{width:100%; min-height:56px; padding:9px 11px; border:2px solid var(--ink900);
      border-radius:0; font-family:var(--mono); font-size:13px; color:var(--ink); background:#fff; resize:vertical}
   .seobar textarea:focus{outline:2px solid var(--ink); outline-offset:2px}
+  .banner{padding:10px 12px; border:2px solid var(--ink900); background:var(--ink100); font-size:13px; margin-bottom:12px}
   #seostatus{font-family:var(--mono); font-size:12px; color:var(--ink700)}
   #seostatus.err{color:var(--ink)}
   .muted{color:var(--ink500)}
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:#fff;
+         padding:10px 16px; font-family:var(--grotesk); font-weight:700; font-size:13px; z-index:40;
+         box-shadow:0 8px 24px rgba(0,0,0,.2)}
+  .toast[hidden]{display:none}
+  #togglefilters.on{background:var(--ink); color:#fff}
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -160,107 +166,31 @@
 <header class="mast">
   <div class="mast-top">
     <div class="mast-brand">DROPLIST</div>
-  </div>
-  <div class="mast-rule"></div>
-  <div class="mast-meta" style="justify-content:flex-end">
-    <div class="filemeta" id="filemeta"></div>
+    <div class="mast-tools">
+      <div class="filemeta" id="filemeta">No Nominet list loaded</div>
+      <button class="btn" id="loadnew" type="button">Load Nominet list</button>
+    </div>
   </div>
 </header>
 
 <div class="wrap">
-  <aside>
-    <section class="win">
-      <div class="tb"><span>Filters</span></div>
-      <div class="bd">
-        <h2>Filters</h2>
-
-        <div class="filtergrid">
-        <div class="fld">
-          <label class="t" for="kw">Keywords (include)</label>
-          <input type="text" id="kw" placeholder="insurance, repair, london">
-          <div class="checks" style="margin-top:8px">
-            <label class="chk"><input type="radio" name="kwmode" value="any" checked> match any</label>
-            <label class="chk"><input type="radio" name="kwmode" value="all"> match all</label>
-          </div>
-          <div class="hint">Comma-separated. Matches anywhere in the name.</div>
-        </div>
-
-        <div class="fld">
-          <label class="t" for="ex">Exclude keywords</label>
-          <input type="text" id="ex" placeholder="shop, free">
-        </div>
-
-        <div class="fld">
-          <label class="t">Words in name</label>
-          <div class="checks">
-            <label class="chk"><input type="checkbox" class="wc" value="1" checked> 1</label>
-            <label class="chk"><input type="checkbox" class="wc" value="2" checked> 2</label>
-            <label class="chk"><input type="checkbox" class="wc" value="3" checked> 3</label>
-            <label class="chk"><input type="checkbox" class="wc" value="0" checked> other</label>
-          </div>
-          <div class="hint">&ldquo;other&rdquo; = names that aren&rsquo;t 1&ndash;3 dictionary words. Untick to show only real-word names.</div>
-        </div>
-
-        <div class="fld">
-          <label class="t">Letters in name</label>
-          <div class="row">
-            <input type="number" id="minlen" min="3" max="25" placeholder="min">
-            <input type="number" id="maxlen" min="3" max="25" placeholder="max">
-          </div>
-          <div class="hint">Length of the name, excluding the .co.uk / .uk part.</div>
-        </div>
-
-        <div class="fld">
-          <label class="t">Extension</label>
-          <div class="checks">
-            <label class="chk"><input type="checkbox" class="tld" value="co.uk" checked> .co.uk</label>
-            <label class="chk"><input type="checkbox" class="tld" value="uk" checked> .uk</label>
-          </div>
-        </div>
-
-        <div class="fld">
-          <label class="chk"><input type="checkbox" id="commonly"> Buyer / service intent only</label>
-          <div class="hint">Names with a commercial word (buy, hire, repair, insurance&hellip;).</div>
-        </div>
-
-        <div class="fld">
-          <label class="t">Format</label>
-          <label class="chk" style="margin-bottom:7px"><input type="checkbox" id="exNum"> Exclude numbers</label>
-          <label class="chk" style="margin-bottom:7px"><input type="checkbox" id="exHyphen"> Exclude hyphens</label>
-          <label class="chk"><input type="checkbox" id="britishOnly"> British spelling only</label>
-        </div>
-
-        <div class="fld">
-          <label class="t">New domains</label>
-          <label class="chk"><input type="checkbox" id="newOnly" checked> New since last review <span class="favcount" id="newcount"></span></label>
-          <div class="hint">Shows only names not in your last &ldquo;marked as seen&rdquo; upload. Your first upload sets the baseline.</div>
-          <div class="btnrow" style="margin-top:8px">
-            <button class="btn ghost" id="markseen" type="button">Mark all as seen</button>
-          </div>
-          <div class="hint" style="margin-top:8px"><a href="#" id="resetseen">Reset tracking</a></div>
-        </div>
-
-        </div><!-- /filtergrid -->
-
-        <div class="filteractions">
-          <button class="btn" id="apply" type="button">Apply filters</button>
-          <button class="btn ghost" id="reset" type="button">Reset</button>
-          <button class="btn ghost" id="loadnew" type="button">Load file</button>
-        </div>
-      </div>
-    </section>
-  </aside>
-
   <main>
     <section class="win">
-      <div class="tb"><span id="winname">Shortlist</span></div>
+      <div class="tb"><span id="winname">Brandables</span></div>
       <div class="bd">
+
+        <div class="tabs">
+          <button class="tab active" type="button" data-view="list">Brandables</button>
+          <button class="tab" type="button" data-view="seo">SEO leftovers <span id="seotab">(0)</span></button>
+          <button class="tab" type="button" data-view="favs">Watchlist <span id="favtab">(0)</span></button>
+        </div>
 
         <div id="dropstate">
           <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload the Nominet drop list">
             <div class="drop-tb"><span>uk.csv.gz</span></div>
             <div class="drop-bd">
               <div class="big">Drop today&rsquo;s Nominet list here</div>
+              <div class="small">Or use Load Nominet list in the masthead</div>
             </div>
           </div>
           <div id="proc" style="display:none; padding:4px 4px 10px">
@@ -270,21 +200,98 @@
         </div>
 
         <div id="results">
-          <div class="tabs">
-            <button class="tab active" type="button" data-view="list">Shortlist</button>
-            <button class="tab" type="button" data-view="favs">Favourites <span id="favtab">(0)</span></button>
-            <button class="tab" type="button" data-view="seo">SEO list <span id="seotab">(0)</span></button>
+          <div id="presets" class="chips">
+            <button class="chip on" type="button" data-preset="clean">Clean brandable</button>
+            <button class="chip" type="button" data-preset="commercial">Commercial</button>
+            <button class="chip" type="button" data-preset="all">All names</button>
+            <button class="btn ghost grow" id="togglefilters" type="button">Filters</button>
           </div>
+
+          <div id="filterdrawer">
+            <h2>Filters</h2>
+            <div class="filtergrid">
+            <div class="fld">
+              <label class="t" for="kw">Keywords (include)</label>
+              <input type="text" id="kw" placeholder="insurance, repair, london">
+              <div class="checks" style="margin-top:8px">
+                <label class="chk"><input type="radio" name="kwmode" value="any" checked> match any</label>
+                <label class="chk"><input type="radio" name="kwmode" value="all"> match all</label>
+              </div>
+              <div class="hint">Comma-separated. Matches anywhere in the name.</div>
+            </div>
+
+            <div class="fld">
+              <label class="t" for="ex">Exclude keywords</label>
+              <input type="text" id="ex" placeholder="shop, free">
+            </div>
+
+            <div class="fld">
+              <label class="t">Words in name</label>
+              <div class="checks">
+                <label class="chk"><input type="checkbox" class="wc" value="1" checked> 1</label>
+                <label class="chk"><input type="checkbox" class="wc" value="2" checked> 2</label>
+                <label class="chk"><input type="checkbox" class="wc" value="3"> 3</label>
+                <label class="chk"><input type="checkbox" class="wc" value="0"> other</label>
+              </div>
+              <div class="hint">&ldquo;other&rdquo; = names that aren&rsquo;t 1&ndash;3 dictionary words. Invented brandables still show with 1&ndash;2 words on.</div>
+            </div>
+
+            <div class="fld">
+              <label class="t">Letters in name</label>
+              <div class="row">
+                <input type="number" id="minlen" min="3" max="25" placeholder="min">
+                <input type="number" id="maxlen" min="3" max="25" value="12" placeholder="max">
+              </div>
+              <div class="hint">Length of the name, excluding the .co.uk / .uk part.</div>
+            </div>
+
+            <div class="fld">
+              <label class="t">Extension</label>
+              <div class="checks">
+                <label class="chk"><input type="checkbox" class="tld" value="co.uk" checked> .co.uk</label>
+                <label class="chk"><input type="checkbox" class="tld" value="uk" checked> .uk</label>
+              </div>
+            </div>
+
+            <div class="fld">
+              <label class="chk"><input type="checkbox" id="commonly"> Buyer / service intent only</label>
+              <div class="hint">Names with a commercial word (buy, hire, repair, insurance&hellip;).</div>
+            </div>
+
+            <div class="fld">
+              <label class="t">Format</label>
+              <label class="chk" style="margin-bottom:7px"><input type="checkbox" id="exNum" checked> Exclude numbers</label>
+              <label class="chk" style="margin-bottom:7px"><input type="checkbox" id="exHyphen" checked> Exclude hyphens</label>
+              <label class="chk"><input type="checkbox" id="britishOnly"> British spelling only</label>
+            </div>
+
+            <div class="fld">
+              <label class="t">New domains</label>
+              <label class="chk"><input type="checkbox" id="newOnly"> New since last review <span class="favcount" id="newcount"></span></label>
+              <div class="hint">Shows only names not in your last &ldquo;marked as seen&rdquo; upload. Off until you want a delta.</div>
+              <div class="btnrow" style="margin-top:8px">
+                <button class="btn ghost" id="markseen" type="button">Mark all as seen</button>
+              </div>
+              <div class="hint" style="margin-top:8px"><a href="#" id="resetseen">Reset tracking</a></div>
+            </div>
+            </div><!-- /filtergrid -->
+
+            <div class="filteractions">
+              <button class="btn ghost" id="reset" type="button">Reset</button>
+            </div>
+          </div>
+
           <div id="seobar" class="seobar" style="display:none">
+            <div class="banner" id="seobanner">SEO lookups need DataForSEO secrets in Cloudflare Pages.</div>
             <div class="fld" style="margin:0">
               <label class="t" for="seopaste">Add domains</label>
-              <textarea id="seopaste" rows="3" placeholder="one per line, or comma-separated"></textarea>
-              <div class="hint">Names do not have to be on today’s Nominet file. Check SEO only runs for this list.</div>
+              <textarea id="seopaste" rows="2" placeholder="one per line, or comma-separated"></textarea>
+              <div class="hint">Paste leftovers, or add selected names from Brandables. Check SEO only runs for this list.</div>
             </div>
             <div class="filteractions" style="margin-top:12px;padding-top:12px">
-              <button class="btn" id="seoadd" type="button">Add to list</button>
-              <button class="btn ghost" id="seocheck" type="button">Check SEO</button>
-              <button class="btn ghost" id="seorecheck" type="button" title="Overwrite cache and fetch again">Recheck selected</button>
+              <button class="btn" id="seoadd" type="button">Add</button>
+              <button class="btn ghost" id="seocheck" type="button" disabled>Check SEO</button>
+              <button class="btn ghost" id="seorecheck" type="button" disabled title="Overwrite cache and fetch again">Recheck selected</button>
               <button class="btn ghost" id="seoremove" type="button">Remove selected</button>
               <button class="btn ghost" id="seoclear" type="button">Clear list</button>
             </div>
@@ -303,7 +310,7 @@
               </div>
             </div>
             <div class="filteractions" style="margin-top:0;border-top:none;padding-top:0">
-              <button class="btn ghost" id="seohunt" type="button">Find expiring</button>
+              <button class="btn ghost" id="seohunt" type="button" disabled>Find expiring</button>
               <span class="hint" id="seostatus"></span>
             </div>
           </div>
@@ -312,9 +319,9 @@
             <div class="split" id="splitline"></div>
             <div class="sb-actions">
               <span class="selinfo" id="selinfo"></span>
-              <button class="btn ghost" id="addtoseo" type="button" disabled title="Copy selected names to the SEO list (does not fetch yet)">Add selected to SEO list</button>
+              <button class="btn ghost" id="addtoseo" type="button" disabled title="Copy selected names to SEO leftovers (does not fetch yet)">Add to SEO</button>
               <button class="btn ghost" id="exportsel" type="button" disabled title="Export selected rows to CSV">Export selected</button>
-              <button class="btn ghost" id="copyall" type="button" title="Copy all shown domains (for Namecheap bulk search)">Copy all</button>
+              <button class="btn ghost" id="copyall" type="button" title="Copy all shown domains">Copy all</button>
               <button class="btn" id="download" type="button">Download CSV</button>
             </div>
           </div>
@@ -323,9 +330,11 @@
               <thead><tr>
                 <th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>
                 <th data-k="domain">Domain <span class="ar"></span></th>
-                <th data-k="letters" class="num">Letters <span class="ar"></span></th>
+                <th data-k="words">Words <span class="ar"></span></th>
+                <th data-k="letters" class="num">Length <span class="ar"></span></th>
                 <th data-k="drop_ms">Time to drop <span class="ar"></span></th>
-                <th data-k="score" class="num active">Score <span class="ar">&darr;</span></th>
+                <th data-k="score" class="num active">Brand score <span class="ar">&darr;</span></th>
+                <th>Tags</th>
               </tr></thead>
               <tbody id="tbody"></tbody>
             </table>
@@ -339,6 +348,7 @@
   </main>
 </div>
 
+<div class="toast" id="toast" hidden></div>
 <input type="file" id="file" accept=".gz,.csv,.txt" style="display:none">
 
 <script>
@@ -470,10 +480,18 @@
       }
     }
 
+    var invented = false;
+    if (!isWords && L >= 4 && L <= 8 && !hasHyphen && !hasDigit && /[aeiouy]/.test(label)) {
+      invented = true;
+      score = Math.round((3.6 - 0.4 * (L - 4)) * 100) / 100;
+    }
+    if (tld === "co.uk") score = Math.round((score + 0.3) * 100) / 100;
+
     return {
       domain: domain, tld: tld, words: wordsStr, word_count: wcount, letters: L,
       score: score, commercial: commercial, drop_time: dropTime,
-      hasDigit: hasDigit, hasHyphen: hasHyphen, hasUS: hasUS, isWords: isWords
+      hasDigit: hasDigit, hasHyphen: hasHyphen, hasUS: hasUS, isWords: isWords,
+      invented: invented
     };
   }
 
@@ -504,7 +522,8 @@
       if (f.tlds && !f.tlds.has(r.tld)) return false;
       if (f.wordCounts && f.wordCounts.size) {
         var key = (r.word_count >= 1 && r.word_count <= 3) ? r.word_count : 0;
-        if (!f.wordCounts.has(key)) return false;
+        var inventedOk = r.invented && (f.wordCounts.has(1) || f.wordCounts.has(2));
+        if (!f.wordCounts.has(key) && !inventedOk) return false;
       }
       if (f.minLen != null && r.letters < f.minLen) return false;
       if (f.maxLen != null && r.letters > f.maxLen) return false;
@@ -525,9 +544,9 @@
   }
 
   function toCsv(rows) {
-    var head = "domain,tld,words,word_count,letters,score,commercial,drop_time";
+    var head = "domain,tld,words,word_count,letters,score,commercial,invented,drop_time";
     var body = rows.map(function (r) {
-      return [r.domain, r.tld, r.words, r.word_count, r.letters, r.score, r.commercial, r.drop_time].join(",");
+      return [r.domain, r.tld, r.words, r.word_count, r.letters, r.score, r.commercial, r.invented ? 1 : 0, r.drop_time].join(",");
     });
     return head + "\n" + body.join("\n") + "\n";
   }
@@ -665,7 +684,70 @@ function addSeoDomains(names, extrasByDomain){
   if(added) saveSeo();
   return added;
 }
-updateFavCount(); updateSeoCount(); updateSel();
+let toastTimer = null;
+function toast(msg){
+  const el = $("#toast"); if(!el) return;
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ el.hidden = true; }, 2200);
+}
+let seoConfigured = false;
+function applySeoEnabled(){
+  const msg = "SEO lookups need DataForSEO secrets in Cloudflare Pages.";
+  ["#seocheck","#seorecheck","#seohunt"].forEach(s=>{
+    const b=$(s); if(!b) return;
+    b.disabled = !seoConfigured;
+    b.title = seoConfigured ? (s==="#seorecheck" ? "Overwrite cache and fetch again" : "") : msg;
+  });
+  const banner = $("#seobanner");
+  if(banner){
+    banner.hidden = !!seoConfigured;
+    banner.textContent = msg;
+  }
+}
+async function loadHealth(){
+  try{
+    const res = await fetch("/api/health");
+    const data = await res.json();
+    seoConfigured = !!(data && data.configured);
+  }catch(e){
+    seoConfigured = false;
+  }
+  applySeoEnabled();
+}
+updateFavCount(); updateSeoCount(); updateSel(); applySeoEnabled();
+loadHealth();
+
+const PRESETS = {
+  clean: { wc:[1,2], tlds:["co.uk","uk"], minlen:"", maxlen:"12", commonly:false, exNum:true, exHyphen:true, britishOnly:false, newOnly:false, kw:"", ex:"", kwmode:"any" },
+  commercial: { wc:[1,2,3,0], tlds:["co.uk","uk"], minlen:"", maxlen:"", commonly:true, exNum:false, exHyphen:false, britishOnly:false, newOnly:false, kw:"", ex:"", kwmode:"any" },
+  all: { wc:[1,2,3,0], tlds:["co.uk","uk"], minlen:"", maxlen:"", commonly:false, exNum:false, exHyphen:false, britishOnly:false, newOnly:false, kw:"", ex:"", kwmode:"any" }
+};
+let applyingPreset = false;
+function writeFilters(p){
+  $("#kw").value = p.kw; $("#ex").value = p.ex;
+  $("#minlen").value = p.minlen; $("#maxlen").value = p.maxlen;
+  $("#commonly").checked = p.commonly;
+  $("#exNum").checked = p.exNum; $("#exHyphen").checked = p.exHyphen;
+  $("#britishOnly").checked = p.britishOnly; $("#newOnly").checked = p.newOnly;
+  const mode = document.querySelector("input[name=kwmode][value='"+p.kwmode+"']");
+  if(mode) mode.checked = true;
+  document.querySelectorAll(".wc").forEach(c=>{ c.checked = p.wc.indexOf(+c.value)>=0; });
+  document.querySelectorAll(".tld").forEach(c=>{ c.checked = p.tlds.indexOf(c.value)>=0; });
+}
+function markPreset(name){
+  activePreset = name;
+  document.querySelectorAll(".chip[data-preset]").forEach(c=>c.classList.toggle("on", c.getAttribute("data-preset")===name));
+}
+function applyPreset(name){
+  const p = PRESETS[name]; if(!p) return;
+  applyingPreset = true;
+  writeFilters(p);
+  markPreset(name);
+  applyingPreset = false;
+  runFilters();
+}
 
 /* ---------- file handling ---------- */
 const drop = $("#drop"), fileInput = $("#file");
@@ -705,10 +787,10 @@ async function processText(text, file){
       const a = line.indexOf(","); if(a<0) continue;
       const b = line.indexOf(",", a+1);
       const domain = b<0 ? line.slice(a+1) : line.slice(a+1,b);
-      const drop = b<0 ? "" : line.slice(b+1);
+      const dropT = b<0 ? "" : line.slice(b+1);
       if(!domain || dedupe.has(domain)) continue;
       dedupe.add(domain);
-      const c = DropCore.makeCandidate(domain, drop, V, N, 3);
+      const c = DropCore.makeCandidate(domain, dropT, V, N, 3);
       if(c){ c.drop_ms = Date.parse(c.drop_time) || 0; out.push(c); }
     }
     showProc("Scanning "+lines.length.toLocaleString()+" domains\u2026", 15 + Math.round((end/lines.length)*80));
@@ -722,13 +804,12 @@ async function processText(text, file){
 
   const co = out.filter(r=>r.tld==="co.uk").length;
   const lm = file.lastModified ? new Date(file.lastModified) : null;
-  $("#filemeta").innerHTML = "Loaded <strong>"+file.name+"</strong>"+(lm?" &middot; file dated "+lm.toISOString().slice(0,10):"")+
-    "<br>"+out.length.toLocaleString()+" .co.uk/.uk names &middot; <strong>"+newN.toLocaleString()+"</strong> new &middot; "+(lines.length-1).toLocaleString()+" dropping domains";
-  $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk &middot; <b>"+(out.length-co).toLocaleString()+"</b> .uk";
+  $("#filemeta").innerHTML = "Loaded <strong>"+file.name+"</strong>"+(lm?" · "+lm.toISOString().slice(0,10):"")+
+    " · "+out.length.toLocaleString()+" names · <strong>"+newN.toLocaleString()+"</strong> new";
+  $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk · <b>"+(out.length-co).toLocaleString()+"</b> .uk";
 
   $("#proc").style.display="none";
   $("#dropstate").style.display="none";
-  $("#results").style.display="block";
   if(view!=="seo"){ sortKey="score"; sortDir=-1; }
   selected.clear();
   filtered=[]; window.__filteredOnce=false;
@@ -776,12 +857,13 @@ function favRows(){
   return [...favs].map(d=>{
     const r = favMap.get(d);
     if(r) return r;
+    const seo = seoRows.find(x=>x.domain===d);
     let tld="uk", label=d;
     if(d.endsWith(".co.uk")){ tld="co.uk"; label=d.slice(0,-6); }
     else if(d.endsWith(".uk")){ tld="uk"; label=d.slice(0,-3); }
-    return {domain:d, tld:tld, words:"", word_count:0, letters:label.length, score:0,
+    return {domain:d, tld:tld, words:"", word_count:0, letters:label.length, score: seo&&seo.nameScore?seo.nameScore:0,
             commercial:0, drop_time:"", drop_ms:0, hasDigit:false, hasHyphen:false, hasUS:false,
-            isWords:false, notInList:true};
+            isWords:false, invented:false, notInList:true};
   });
 }
 function currentRows(){
@@ -798,24 +880,26 @@ function fmtDur(ms){
 }
 
 const ROW_H = 42, BUFFER = 14;
-let COLS = 5;
+let COLS = 7;
 let viewRows = [];
 
 const LIST_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
   '<th data-k="domain">Domain <span class="ar"></span></th>'+
-  '<th data-k="letters" class="num">Letters <span class="ar"></span></th>'+
+  '<th data-k="words">Words <span class="ar"></span></th>'+
+  '<th data-k="letters" class="num">Length <span class="ar"></span></th>'+
   '<th data-k="drop_ms">Time to drop <span class="ar"></span></th>'+
-  '<th data-k="score" class="num">Score <span class="ar"></span></th>'+
+  '<th data-k="score" class="num">Brand score <span class="ar"></span></th>'+
+  '<th>Tags</th>'+
   '</tr>';
 const SEO_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
   '<th data-k="domain">Domain <span class="ar"></span></th>'+
+  '<th data-k="nameScore" class="num">Brand score <span class="ar"></span></th>'+
   '<th data-k="rank" class="num">Rank <span class="ar"></span></th>'+
-  '<th data-k="referring_main_domains" class="num">Ref domains <span class="ar"></span></th>'+
+  '<th data-k="referring_main_domains" class="num">Ref <span class="ar"></span></th>'+
   '<th data-k="spam_score" class="num">Spam <span class="ar"></span></th>'+
   '<th data-k="etv" class="num">ETV <span class="ar"></span></th>'+
-  '<th data-k="buyScore" class="num">Buy <span class="ar"></span></th>'+
   '<th data-k="checkedAt">Checked <span class="ar"></span></th>'+
   '</tr>';
 
@@ -851,7 +935,7 @@ function setTableHead(){
   const thead = document.querySelector("#tablewrap thead");
   if(!thead) return;
   const seo = view==="seo";
-  COLS = seo ? 8 : 5;
+  COLS = seo ? 8 : 7;
   if(lastHeadView === view) return;
   lastHeadView = view;
   thead.innerHTML = seo ? SEO_HEAD : LIST_HEAD;
@@ -859,19 +943,26 @@ function setTableHead(){
 }
 function applyViewChrome(){
   const seo = view==="seo";
+  const favsView = view==="favs";
   const bar=$("#seobar"); if(bar) bar.style.display = seo ? "block" : "none";
+  const presets=$("#presets"); if(presets) presets.style.display = (view==="list" && allRows.length) ? "flex" : "none";
+  const drawer=$("#filterdrawer");
+  if(drawer && view!=="list") drawer.classList.remove("open");
+  const sb=document.querySelector(".statusbar");
+  if(sb) sb.style.display = (view==="list" && !allRows.length) ? "none" : "";
+  const tf=$("#togglefilters"); if(tf) tf.classList.toggle("on", drawer && drawer.classList.contains("open"));
   const add=$("#addtoseo"); if(add) add.style.display = seo ? "none" : "";
   const wn=$("#winname");
-  if(wn) wn.textContent = view==="seo" ? "SEO list" : (view==="favs" ? "Favourites" : "Shortlist");
+  if(wn) wn.textContent = seo ? "SEO leftovers" : (favsView ? "Watchlist" : "Brandables");
   if(seo){
-    if(["score","letters","drop_ms"].indexOf(sortKey)>=0){ sortKey="buyScore"; sortDir=-1; }
+    if(["score","letters","drop_ms","words"].indexOf(sortKey)>=0){ sortKey="nameScore"; sortDir=-1; }
   } else {
-    if(["buyScore","rank","referring_main_domains","spam_score","etv","checkedAt"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
+    if(["buyScore","rank","referring_main_domains","spam_score","etv","checkedAt","nameScore"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
   }
   setTableHead();
-  const drop=$("#dropstate");
+  const dropEl=$("#dropstate");
   const procOn = $("#proc") && $("#proc").style.display!=="none";
-  if(drop && !procOn) drop.style.display = (!seo && !allRows.length) ? "block" : "none";
+  if(dropEl && !procOn) dropEl.style.display = (view==="list" && !allRows.length) ? "block" : "none";
 }
 
 function fmtNum(v){ return (v===""||v==null||v===undefined) ? '<span class="muted">—</span>' : v; }
@@ -880,23 +971,31 @@ function fmtChecked(iso){
   const d = new Date(iso); if(isNaN(d)) return iso;
   return d.toISOString().slice(0,16).replace("T"," ");
 }
+function tagHtml(r){
+  let t = "";
+  if(r.commercial) t += '<span class="tag">commercial</span>';
+  if(r.hasHyphen) t += '<span class="tag">hyphen</span>';
+  if(r.invented) t += '<span class="tag">invented</span>';
+  return t;
+}
 
 function rowHtml(r, now){
   const sel = '<td class="selcol"><input type="checkbox" class="selbox" data-d="'+r.domain+'"'+(selected.has(r.domain)?' checked':'')+'></td>';
   const dom = '<td class="dom mono">'+
-      '<button class="favbtn'+(favs.has(r.domain)?' on':'')+'" type="button" data-d="'+r.domain+'" title="Favourite" aria-label="Favourite">'+(favs.has(r.domain)?'★':'☆')+'</button>'+
-      '<a class="dlink" href="https://www.namecheap.com/domains/registration/results/?domain='+encodeURIComponent(r.domain)+'" target="_blank" rel="noopener" title="Check '+r.domain+' on Namecheap">'+r.domain+'</a>'+
+      '<button class="favbtn'+(favs.has(r.domain)?' on':'')+'" type="button" data-d="'+r.domain+'" title="Watchlist" aria-label="Watchlist">'+(favs.has(r.domain)?'★':'☆')+'</button>'+
+      '<span class="dname">'+r.domain+'</span>'+
       '<button class="copybtn" type="button" data-d="'+r.domain+'" title="Copy '+r.domain+'" aria-label="Copy domain">copy</button>'+
-      (r.commercial?'<span class="tag">buyer</span>':'')+'</td>';
+      '</td>';
   if(view==="seo"){
     const checked = !!r.checkedAt;
+    const brand = r.nameScore ? Number(r.nameScore).toFixed(2) : '<span class="muted">—</span>';
     return '<tr'+(r.notInList?' class="notinlist"':'')+'>'+
       sel+dom+
+      '<td class="num">'+brand+'</td>'+
       '<td class="num">'+(checked?fmtNum(r.rank):'<span class="muted">—</span>')+'</td>'+
-      '<td class="num">'+(checked||r.referring_main_domains!==""?fmtNum(r.referring_main_domains):'<span class="muted">—</span>')+'</td>'+
+      '<td class="num">'+(checked?fmtNum(r.referring_main_domains):'<span class="muted">—</span>')+'</td>'+
       '<td class="num">'+(checked?fmtNum(r.spam_score):'<span class="muted">—</span>')+'</td>'+
-      '<td class="num">'+(r.etv===""||r.etv==null?'<span class="muted">—</span>':r.etv)+'</td>'+
-      '<td class="num">'+(checked?Number(r.buyScore||0).toFixed(2):'<span class="muted">—</span>')+'</td>'+
+      '<td class="num">'+(checked?fmtNum(r.etv):'<span class="muted">—</span>')+'</td>'+
       '<td class="when">'+fmtChecked(r.checkedAt)+'</td>'+
       '</tr>';
   }
@@ -906,11 +1005,14 @@ function rowHtml(r, now){
   const soon = diff>=864e5 && diff < 5*864e5;
   const until = !r.drop_ms ? '' : (dropped ? 'dropped' : fmtDur(diff));
   const ttdCls = urgent ? 'ttd urgent' : (soon ? 'ttd soon' : (dropped ? 'ttd dropped' : 'ttd'));
+  const words = r.words ? r.words : '<span class="muted">—</span>';
   return '<tr'+(r.notInList?' class="notinlist"':'')+'>'+
     sel+dom+
+    '<td class="wordscell">'+words+'</td>'+
     '<td class="num">'+(r.letters||'')+'</td>'+
     '<td><span class="'+ttdCls+'" title="'+(r.drop_time||'')+'">'+until+'</span></td>'+
-    '<td class="num">'+(r.isWords? r.score.toFixed(2):'')+'</td>'+
+    '<td class="num">'+Number(r.score||0).toFixed(2)+'</td>'+
+    '<td>'+tagHtml(r)+'</td>'+
     '</tr>';
 }
 
@@ -939,28 +1041,46 @@ function render(){
 
   viewRows = currentRows();
   const empty = $("#noresults");
+  const wrap = $("#tablewrap");
+  const showDrop = view==="list" && !allRows.length && !($("#proc") && $("#proc").style.display!=="none");
   if(view==="seo"){
-    $("#count").innerHTML = viewRows.length.toLocaleString()+" <small>seo list</small>";
+    $("#count").innerHTML = viewRows.length.toLocaleString()+" <small>seo leftovers</small>";
     const nChk = seoRows.filter(r=>r.checkedAt).length;
-    $("#splitline").innerHTML = "<b>"+nChk.toLocaleString()+"</b> checked &middot; <b>"+(seoRows.length-nChk).toLocaleString()+"</b> pending";
+    $("#splitline").innerHTML = "<b>"+nChk.toLocaleString()+"</b> checked · <b>"+(seoRows.length-nChk).toLocaleString()+"</b> pending";
     if(empty){
       empty.style.display = viewRows.length? "none":"block";
-      empty.textContent = "Add domains to the SEO list, then Check SEO. Already-checked names are skipped.";
+      empty.textContent = "Paste leftovers or add selected names from Brandables. Check SEO stays off until DataForSEO is configured.";
     }
+    if(wrap) wrap.style.display = "";
+  } else if(view==="favs"){
+    $("#count").innerHTML = viewRows.length.toLocaleString()+" <small>watchlist</small>";
+    let co=0; for(const r of viewRows) if(r.tld==="co.uk") co++;
+    $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk · <b>"+(viewRows.length-co).toLocaleString()+"</b> .uk";
+    if(empty){
+      empty.style.display = viewRows.length? "none":"block";
+      empty.textContent = "Star names from Brandables or SEO leftovers to build a buy list.";
+    }
+    if(wrap) wrap.style.display = "";
   } else {
     let co=0; for(const r of viewRows) if(r.tld==="co.uk") co++;
     $("#count").innerHTML = viewRows.length.toLocaleString()+" <small>names</small>";
-    $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk &middot; <b>"+(viewRows.length-co).toLocaleString()+"</b> .uk";
-    if(empty){
-      empty.style.display = viewRows.length? "none":"block";
-      empty.textContent = allRows.length
-        ? "No names match these filters. Loosen them or clear the keywords."
-        : "Drop a Nominet list to fill the shortlist, or open the SEO list tab.";
+    $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk · <b>"+(viewRows.length-co).toLocaleString()+"</b> .uk";
+    if(showDrop){
+      if(empty) empty.style.display = "none";
+      if(wrap) wrap.style.display = "none";
+    } else {
+      if(wrap) wrap.style.display = "";
+      if(empty){
+        empty.style.display = viewRows.length? "none":"block";
+        empty.textContent = allRows.length
+          ? "No names match these filters. Loosen them or clear the keywords."
+          : "Load a Nominet list to hunt brandables.";
+      }
     }
   }
   const t=$("#trunc"); if(t) t.style.display="none";
 
-  const wrap = $("#tablewrap"); if(wrap) wrap.scrollTop = 0;
+  if(wrap) wrap.scrollTop = 0;
   renderWindow();
 
   document.querySelectorAll("thead th").forEach(th=>{
@@ -975,18 +1095,26 @@ function render(){
   wrap.addEventListener("scroll", ()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=null; renderWindow(); }); }); })();
 
 window.__processText = processText;
-/* manual filtering: full list shows on load; filters apply only on demand */
 function runFilters(){ filtered=[]; window.__filteredOnce=false; applyAndRender(); }
-$("#apply").addEventListener("click", runFilters);
-["#kw","#ex","#minlen","#maxlen"].forEach(s=>$(s).addEventListener("keydown", e=>{ if(e.key==="Enter") runFilters(); }));
+let filterTimer = null;
+function scheduleFilters(){
+  if(!applyingPreset) markPreset("");
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(runFilters, 120);
+}
+["#kw","#ex","#minlen","#maxlen"].forEach(s=>$(s).addEventListener("input", scheduleFilters));
+document.querySelectorAll(".wc,.tld,input[name=kwmode],#commonly,#exNum,#exHyphen,#britishOnly,#newOnly").forEach(el=>{
+  el.addEventListener("change", ()=>{ if(!applyingPreset) markPreset(""); runFilters(); });
+});
 
-$("#reset").addEventListener("click",()=>{
-  $("#kw").value=""; $("#ex").value=""; $("#minlen").value=""; $("#maxlen").value="";
-  document.querySelectorAll(".wc,.tld").forEach(c=>c.checked=true);
-  $("#commonly").checked=false;
-  $("#exNum").checked=false; $("#exHyphen").checked=false; $("#britishOnly").checked=false; $("#newOnly").checked=true;
-  document.querySelector("input[name=kwmode][value=any]").checked=true;
-  filtered=[]; window.__filteredOnce=false; applyAndRender();
+$("#reset").addEventListener("click",()=> applyPreset("clean"));
+document.querySelectorAll(".chip[data-preset]").forEach(btn=>{
+  btn.addEventListener("click", ()=> applyPreset(btn.getAttribute("data-preset")));
+});
+$("#togglefilters").addEventListener("click", ()=>{
+  const d=$("#filterdrawer");
+  d.classList.toggle("open");
+  $("#togglefilters").classList.toggle("on", d.classList.contains("open"));
 });
 
 $("#markseen").addEventListener("click", ()=>{
@@ -1006,21 +1134,20 @@ $("#resetseen").addEventListener("click", (e)=>{
 
 function downloadCsv(rows, tag){
   if(!rows.length) return;
-  const csv = (view==="seo" || tag==="seo-list") ? DropCore.toSeoCsv(rows) : DropCore.toCsv(rows);
+  const csv = (view==="seo" || tag==="seo-leftovers") ? DropCore.toSeoCsv(rows) : DropCore.toCsv(rows);
   const blob = new Blob([csv], {type:"text/csv"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const d = new Date().toISOString().slice(0,10);
-  a.href=url; a.download=(tag||"shortlist")+"-"+d+".csv"; a.click();
+  a.href=url; a.download=(tag||"brandables")+"-"+d+".csv"; a.click();
   URL.revokeObjectURL(url);
 }
-$("#download").addEventListener("click", ()=> downloadCsv(currentRows(), view==="seo"?"seo-list":(view==="favs"?"favourites":"shortlist")));
+$("#download").addEventListener("click", ()=> downloadCsv(currentRows(), view==="seo"?"seo-leftovers":(view==="favs"?"watchlist":"brandables")));
 $("#exportsel").addEventListener("click", ()=>{
   const rows = view==="seo" ? seoRows.filter(r=>selected.has(r.domain)) : allRows.filter(r=>selected.has(r.domain));
   downloadCsv(rows, view==="seo"?"seo-selected":"selected");
 });
 
-/* click "copy" to copy a domain; click the domain to open it on Namecheap */
 function legacyCopy(txt){
   const ta=document.createElement("textarea"); ta.value=txt;
   ta.style.position="fixed"; ta.style.top="-1000px"; document.body.appendChild(ta);
@@ -1059,9 +1186,7 @@ $("#tbody").addEventListener("change", e=>{
 $("#addtoseo").addEventListener("click", ()=>{
   const names = [...selected];
   const n = addSeoDomains(names);
-  setSeoStatus(n ? "Added "+n+" to the SEO list (not fetched yet)." : "Those names are already on the SEO list.");
-  const b=$("#addtoseo"), o=b.textContent; b.textContent = n?("Added "+n):"Already listed"; b.classList.add("okall");
-  setTimeout(()=>{ b.textContent="Add selected to SEO list"; b.classList.remove("okall"); }, 1300);
+  toast(n ? n+" added" : "Already on SEO leftovers");
   updateSeoCount();
 });
 $("#seoadd").addEventListener("click", ()=>{
@@ -1069,6 +1194,7 @@ $("#seoadd").addEventListener("click", ()=>{
   const n = addSeoDomains(names);
   $("#seopaste").value = "";
   setSeoStatus(n ? "Added "+n+"." : (names.length? "Already on the list." : "Paste one or more domains first."));
+  if(n) toast(n+" added");
   render();
 });
 function mergeSeoItems(items){
@@ -1084,6 +1210,11 @@ function mergeSeoItems(items){
   saveSeo();
 }
 async function checkSeo({ force=false, onlySelected=false } = {}){
+  if(!seoConfigured){
+    setSeoStatus("SEO lookups need DataForSEO secrets in Cloudflare Pages.", true);
+    applySeoEnabled();
+    return;
+  }
   let targets = onlySelected ? seoRows.filter(r=>selected.has(r.domain)).map(r=>r.domain) : seoRows.map(r=>r.domain);
   if(!force) targets = targets.filter(d=>{
     const row = seoRows.find(r=>r.domain===d);
@@ -1106,14 +1237,14 @@ async function checkSeo({ force=false, onlySelected=false } = {}){
     const data = await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.error || ("HTTP "+res.status));
     mergeSeoItems(data.items||[]);
-    sortKey="buyScore"; sortDir=-1;
+    sortKey="nameScore"; sortDir=-1;
     setSeoStatus("checked "+(data.items||[]).length+", skipped "+(data.cached||0)+" cached, fetched "+(data.fetched||0)
       +(data.cost?(" · $"+data.cost):""));
     render();
   }catch(err){
     setSeoStatus(err.message || "SEO check failed", true);
   }finally{
-    $("#seocheck").disabled = false; $("#seorecheck").disabled = false;
+    applySeoEnabled();
   }
 }
 $("#seocheck").addEventListener("click", ()=> checkSeo({ force:false }));
@@ -1131,6 +1262,11 @@ $("#seoclear").addEventListener("click", ()=>{
   render();
 });
 $("#seohunt").addEventListener("click", async ()=>{
+  if(!seoConfigured){
+    setSeoStatus("SEO lookups need DataForSEO secrets in Cloudflare Pages.", true);
+    applySeoEnabled();
+    return;
+  }
   const body = {
     days: +$("#seodays").value || 7,
     registered: !$("#seoexpired").checked,
@@ -1160,13 +1296,13 @@ $("#seohunt").addEventListener("click", async ()=>{
     const n = addSeoDomains((data.items||[]).map(it=>it.domain), extras);
     view="seo";
     document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active", x.getAttribute("data-view")==="seo"));
-    setSeoStatus("Found "+(data.items||[]).length+", added "+n+" to the SEO list. Check SEO to fill rank/spam."
+    setSeoStatus("Found "+(data.items||[]).length+", added "+n+" to SEO leftovers. Check SEO to fill rank/spam."
       +(data.cost?(" · $"+data.cost):""));
     render();
   }catch(err){
     setSeoStatus(err.message || "Expiring search failed", true);
   }finally{
-    $("#seohunt").disabled = false;
+    applySeoEnabled();
   }
 });
 

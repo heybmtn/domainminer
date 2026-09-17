@@ -1,6 +1,6 @@
 # Domain miner
 
-UK Nominet droplist filter plus a DataForSEO-backed SEO watchlist.
+UK Nominet droplist filter for brandable resale hunting, plus an SEO leftovers queue.
 
 ## Run
 
@@ -14,13 +14,13 @@ Open http://localhost:3847
 
 Live: https://domainminer.pages.dev
 
-Nominet filtering works without an API key. **Check SEO** and **Find expiring** need `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD`. On Cloudflare Pages, add those as encrypted environment variables for Production and Preview (Settings → Variables and Secrets).
+Nominet filtering works without an API key. **Check SEO** and **Find expiring** stay disabled until `/api/health` reports DataForSEO is configured. On Cloudflare Pages, add `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` as encrypted environment variables for Production and Preview (Settings → Variables and Secrets).
 
-## SEO list
+## Hunts
 
-1. Add names (paste, or **Add selected** from the shortlist).
-2. **Check SEO** looks up rank, referring domains, and spam for names not already in the cache.
-3. Results are stored in `data/seo-cache.json`. The same domain is not billed again unless you **Recheck selected**.
+1. **Brandables** — load today’s Nominet `uk.csv.gz`. Presets (Clean brandable, Commercial, All names) apply immediately. Star a name to put it on the Watchlist; **Add to SEO** copies selected names onto the leftovers queue.
+2. **SEO leftovers** — paste or copy names here so you do not spend API on the whole drop file. Check SEO only runs for this list, and already-checked names are skipped.
+3. **Watchlist** — the buy list. Stars from either hunt.
 
 ## Tests
 
