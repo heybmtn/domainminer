@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { keywordFromDomain, normalizeDomain, parseDomainList } from "../lib/domains.mjs";
+import { WORDS } from "../lib/words.mjs";
 
 test("normalizeDomain strips urls and www", () => {
   assert.equal(normalizeDomain("HTTPS://WWW.Example.co.uk/path"), "example.co.uk");
@@ -14,9 +16,16 @@ test("parseDomainList dedupes and caps", () => {
   assert.deepEqual(list, ["a.com", "b.co.uk", "c.uk"]);
 });
 
-test("keywordFromDomain turns hyphens into a UK search phrase", () => {
+test("keywordFromDomain turns hyphens and glued dictionary words into a UK search phrase", () => {
   assert.equal(keywordFromDomain("prep-schools.co.uk"), "prep schools");
   assert.equal(keywordFromDomain("HTTPS://WWW.Prep-Schools.co.uk"), "prep schools");
+  assert.equal(keywordFromDomain("prepschools.co.uk"), "prep schools");
   assert.equal(keywordFromDomain("lumo.uk"), "lumo");
-  assert.equal(keywordFromDomain("prepschools.co.uk"), "prepschools");
+});
+
+test("server vocab matches the Brand WORDS list in index.html", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const m = html.match(/const WORDS = "([^"]+)"/);
+  assert.ok(m, "index.html WORDS missing");
+  assert.equal(WORDS, m[1]);
 });

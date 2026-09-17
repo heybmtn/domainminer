@@ -64,3 +64,11 @@ test("clean 1–2 word filter still includes invented names", () => {
   assert.ok(domains.includes("home.uk"));
   assert.ok(!domains.includes("zzzzzzzz.uk"));
 });
+
+test("keywordFromDomain splits glued dictionary words when vocab is set", () => {
+  const vocab = DropCore.buildVocab(["prep", "schools", "home"]);
+  DropCore.setKeywordVocab(vocab);
+  assert.equal(DropCore.keywordFromDomain("prepschools.co.uk"), "prep schools");
+  assert.equal(DropCore.keywordFromDomain("prep-schools.co.uk"), "prep schools");
+  assert.equal(DropCore.keywordFromDomain("lumo.uk"), "lumo");
+});

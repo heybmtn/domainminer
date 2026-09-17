@@ -50,12 +50,12 @@ test("Spam hover explains 0-100 bands and that 50 is medium", () => {
 
 test("ETV and KW hovers describe UK traffic and monthly searches", () => {
   assert.match(html, /ETV: estimated UK organic clicks/);
-  assert.match(html, /hyphens become spaces/);
+  assert.match(html, /hyphens become spaces and glued names split into dictionary words/);
   assert.match(html, /Google Ads exact UK volume/);
   assert.match(html, /Keyword Planner’s grouped estimate/);
   assert.match(html, /UK monthly searches for/);
   assert.match(html, /function kwCellTip/);
-  assert.match(html, /prep-schools\.co\.uk/);
+  assert.match(html, /prepschools\.co\.uk/);
   assert.doesNotMatch(html, /still ranks for/);
   assert.doesNotMatch(html, /Check SEO does not fill this yet/);
 });
@@ -69,7 +69,8 @@ test("user-facing copy says SEO domains, not leftovers", () => {
   assert.doesNotMatch(html, /seo-leftovers/);
 });
 
-test("Check SEO backfills rows missing organic_count or search_volume", () => {
+test("Check SEO backfills rows missing organic_count, search_volume, or a stale keyword phrase", () => {
   assert.match(html, /row\.organic_count == null \|\| row\.organic_count === ""/);
   assert.match(html, /row\.search_volume == null \|\| row\.search_volume === ""/);
+  assert.match(html, /row\.keyword \|\| ""\) !== DropCore\.keywordFromDomain\(d\)/);
 });
