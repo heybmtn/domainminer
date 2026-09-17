@@ -94,19 +94,25 @@
   .sb-actions{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap}
 
   .tablewrap{overflow-y:auto; overflow-x:auto; max-height:calc(100vh - 220px)}
-  table{table-layout:auto}
-  table{border-collapse:collapse; width:100%}
-  table{font-size:13px}
+  table{table-layout:fixed; border-collapse:collapse; width:100%; font-size:13px; min-width:860px}
+  col.col-sel{width:40px}
+  col.col-domain{width:auto}
+  col.col-words{width:16%}
+  col.col-num{width:7.4rem}
+  col.col-ttd{width:8.2rem}
+  col.col-tags{width:10.5rem}
+  col.col-when{width:9.2rem}
   thead th{position:sticky; top:0; background:#fff; text-align:left; padding:11px 10px;
      border-bottom:2px solid var(--ink900); font-family:var(--grotesk); text-transform:uppercase;
-     letter-spacing:.14em; font-size:10.5px; color:var(--ink500); font-weight:700; cursor:pointer; white-space:nowrap; user-select:none}
+     letter-spacing:.08em; font-size:10.5px; color:var(--ink500); font-weight:700; cursor:pointer; white-space:nowrap; user-select:none}
   thead th .ar{opacity:.5; margin-left:4px}
   thead th.active{color:var(--ink)} thead th.active .ar{opacity:1}
+  thead th.num, td.num{text-align:right; font-variant-numeric:tabular-nums}
   tbody td{box-sizing:border-box; height:42px; padding:0 10px; border-bottom:1px solid var(--ink200); white-space:nowrap; color:var(--ink700); font-family:var(--grotesk); vertical-align:middle}
   .wordscell{max-width:180px; overflow:hidden; text-overflow:ellipsis; font-family:var(--mono); color:var(--ink)}
   tbody tr.spacer td{height:auto; padding:0; border:0}
   tbody tr:hover{background:var(--ink100)}
-  td.dom{font-family:var(--mono); font-weight:700; color:var(--ink)}
+  td.dom{font-family:var(--mono); font-weight:700; color:var(--ink); overflow:hidden}
   td.dom .dname{display:inline-block; max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
   .copybtn{font-family:var(--mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink700);
     background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:2px 8px; margin-left:8px; cursor:pointer; vertical-align:middle}
@@ -158,6 +164,10 @@
          padding:10px 16px; font-family:var(--grotesk); font-weight:700; font-size:13px; z-index:40;
          box-shadow:0 8px 24px rgba(0,0,0,.2)}
   .toast[hidden]{display:none}
+  .coltip{position:fixed; z-index:50; max-width:280px; background:var(--ink); color:#fff;
+          padding:8px 10px; font-family:var(--grotesk); font-size:12px; line-height:1.4; font-weight:500;
+          pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  .coltip[hidden]{display:none}
   #togglefilters.on{background:var(--ink); color:#fff}
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -327,14 +337,23 @@
           </div>
           <div class="tablewrap" id="tablewrap">
             <table>
+              <colgroup>
+                <col class="col-sel">
+                <col class="col-domain">
+                <col class="col-words">
+                <col class="col-num">
+                <col class="col-ttd">
+                <col class="col-num">
+                <col class="col-tags">
+              </colgroup>
               <thead><tr>
                 <th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>
-                <th data-k="domain">Domain <span class="ar"></span></th>
-                <th data-k="words">Words <span class="ar"></span></th>
-                <th data-k="letters" class="num">Length <span class="ar"></span></th>
-                <th data-k="drop_ms">Time to drop <span class="ar"></span></th>
-                <th data-k="score" class="num active">Brand score <span class="ar">&darr;</span></th>
-                <th>Tags</th>
+                <th data-k="domain" data-tip="The dropping name. Copy keeps it on the clipboard; star adds it to the Watchlist.">Domain <span class="ar"></span></th>
+                <th data-k="words" data-tip="Dictionary words parsed from the letters before .co.uk / .uk.">Words <span class="ar"></span></th>
+                <th data-k="letters" class="num" data-tip="Character count of the name, excluding the .co.uk / .uk ending.">Length <span class="ar"></span></th>
+                <th data-k="drop_ms" data-tip="Time left until this name is due to drop at Nominet.">Time to drop <span class="ar"></span></th>
+                <th data-k="score" class="num active" data-tip="Name quality from the Nominet hunt: dictionary words, invented brandables, and a small .co.uk boost. Not a backlink score.">Brand score <span class="ar">&darr;</span></th>
+                <th data-tip="commercial = buyer/service word; hyphen = hyphenated; invented = short pronounceable non-word.">Tags</th>
               </tr></thead>
               <tbody id="tbody"></tbody>
             </table>
@@ -349,6 +368,7 @@
 </div>
 
 <div class="toast" id="toast" hidden></div>
+<div class="coltip" id="coltip" hidden></div>
 <input type="file" id="file" accept=".gz,.csv,.txt" style="display:none">
 
 <script>
@@ -883,24 +903,26 @@ const ROW_H = 42, BUFFER = 14;
 let COLS = 7;
 let viewRows = [];
 
+const LIST_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-words"><col class="col-num"><col class="col-ttd"><col class="col-num"><col class="col-tags">';
+const SEO_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-num"><col class="col-num"><col class="col-num"><col class="col-num"><col class="col-num"><col class="col-when">';
 const LIST_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
-  '<th data-k="domain">Domain <span class="ar"></span></th>'+
-  '<th data-k="words">Words <span class="ar"></span></th>'+
-  '<th data-k="letters" class="num">Length <span class="ar"></span></th>'+
-  '<th data-k="drop_ms">Time to drop <span class="ar"></span></th>'+
-  '<th data-k="score" class="num">Brand score <span class="ar"></span></th>'+
-  '<th>Tags</th>'+
+  '<th data-k="domain" data-tip="The dropping name. Copy keeps it on the clipboard; star adds it to the Watchlist.">Domain <span class="ar"></span></th>'+
+  '<th data-k="words" data-tip="Dictionary words parsed from the letters before .co.uk / .uk.">Words <span class="ar"></span></th>'+
+  '<th data-k="letters" class="num" data-tip="Character count of the name, excluding the .co.uk / .uk ending.">Length <span class="ar"></span></th>'+
+  '<th data-k="drop_ms" data-tip="Time left until this name is due to drop at Nominet.">Time to drop <span class="ar"></span></th>'+
+  '<th data-k="score" class="num" data-tip="Name quality from the Nominet hunt: dictionary words, invented brandables, and a small .co.uk boost. Not a backlink score.">Brand score <span class="ar"></span></th>'+
+  '<th data-tip="commercial = buyer/service word; hyphen = hyphenated; invented = short pronounceable non-word.">Tags</th>'+
   '</tr>';
 const SEO_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
-  '<th data-k="domain">Domain <span class="ar"></span></th>'+
-  '<th data-k="nameScore" class="num">Brand score <span class="ar"></span></th>'+
-  '<th data-k="rank" class="num">Rank <span class="ar"></span></th>'+
-  '<th data-k="referring_main_domains" class="num">Ref <span class="ar"></span></th>'+
-  '<th data-k="spam_score" class="num">Spam <span class="ar"></span></th>'+
-  '<th data-k="etv" class="num">ETV <span class="ar"></span></th>'+
-  '<th data-k="checkedAt">Checked <span class="ar"></span></th>'+
+  '<th data-k="domain" data-tip="Name on the leftovers queue. Star adds it to the Watchlist.">Domain <span class="ar"></span></th>'+
+  '<th data-k="nameScore" class="num" data-tip="Name quality from the Nominet hunt: dictionary words, invented brandables, and a small .co.uk boost. This is not Rank or Ref.">Brand score <span class="ar"></span></th>'+
+  '<th data-k="rank" class="num" data-tip="DataForSEO backlink rank. Higher means a stronger link profile.">Rank <span class="ar"></span></th>'+
+  '<th data-k="referring_main_domains" class="num" data-tip="Referring main domains: how many unique websites link to this name.">Ref <span class="ar"></span></th>'+
+  '<th data-k="spam_score" class="num" data-tip="DataForSEO spam score. Higher is riskier.">Spam <span class="ar"></span></th>'+
+  '<th data-k="etv" class="num" data-tip="Estimated traffic value. Check SEO does not fill this yet.">ETV <span class="ar"></span></th>'+
+  '<th data-k="checkedAt" data-tip="When rank, ref, and spam were last fetched. Cached names are not billed again.">Checked <span class="ar"></span></th>'+
   '</tr>';
 
 function bindSelAll(){
@@ -930,16 +952,47 @@ function bindHeadSort(){
     });
   });
 }
+function placeColTip(e, tip){
+  const pad = 12;
+  const x = Math.min(e.clientX + pad, window.innerWidth - 292);
+  const y = Math.min(e.clientY + 18, window.innerHeight - 80);
+  tip.style.left = Math.max(8, x)+"px";
+  tip.style.top = Math.max(8, y)+"px";
+}
+function bindColTips(){
+  const wrap = $("#tablewrap");
+  const tip = $("#coltip");
+  if(!wrap || !tip || wrap.dataset.tipBound) return;
+  wrap.dataset.tipBound = "1";
+  wrap.addEventListener("mouseover", e=>{
+    const th = e.target.closest("th[data-tip]");
+    if(!th) return;
+    tip.textContent = th.getAttribute("data-tip");
+    tip.hidden = false;
+    placeColTip(e, tip);
+  });
+  wrap.addEventListener("mousemove", e=>{
+    if(tip.hidden) return;
+    if(!e.target.closest("th[data-tip]")){ tip.hidden = true; return; }
+    placeColTip(e, tip);
+  });
+  wrap.addEventListener("mouseleave", ()=>{ tip.hidden = true; });
+}
 let lastHeadView = null;
 function setTableHead(){
-  const thead = document.querySelector("#tablewrap thead");
-  if(!thead) return;
+  const table = document.querySelector("#tablewrap table");
+  const thead = table && table.querySelector("thead");
+  if(!table || !thead) return;
   const seo = view==="seo";
   COLS = seo ? 8 : 7;
-  if(lastHeadView === view) return;
-  lastHeadView = view;
-  thead.innerHTML = seo ? SEO_HEAD : LIST_HEAD;
-  bindSelAll(); bindHeadSort();
+  let cg = table.querySelector("colgroup");
+  if(!cg){ cg = document.createElement("colgroup"); table.insertBefore(cg, thead); }
+  if(lastHeadView !== view){
+    lastHeadView = view;
+    cg.innerHTML = seo ? SEO_COLS : LIST_COLS;
+    thead.innerHTML = seo ? SEO_HEAD : LIST_HEAD;
+  }
+  bindSelAll(); bindHeadSort(); bindColTips();
 }
 function applyViewChrome(){
   const seo = view==="seo";

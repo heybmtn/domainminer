@@ -53,6 +53,7 @@ test("second enrich of the same domain does not call DataForSEO", async () => {
   assert.equal(first.items[0].domain, "example.co.uk");
   assert.equal(first.items[0].rank, 120);
   assert.equal(first.items[0].referring_main_domains, 11);
+  assert.equal(first.items[0].nameScore, 4.5);
   assert.ok(first.items[0].buyScore > 4.5);
 
   const second = await enrichDomains(["example.co.uk", "example.co.uk"], { cache, client });
