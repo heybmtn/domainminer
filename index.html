@@ -103,7 +103,7 @@
   col.col-seo{width:7.6rem}
   col.col-kw{width:5.4rem}
   col.col-spam{width:7.6rem}
-  col.col-verdict{width:7.4rem}
+  col.col-verdict{width:8.6rem}
   col.col-ttd{width:8.2rem}
   col.col-tags{width:10.5rem}
   col.col-when{width:9.2rem}
@@ -127,10 +127,14 @@
   .copybtn.ok{background:var(--ink); color:#fff; border-color:var(--ink)}
   td.num{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--ink700)}
   td.num .band{font-family:var(--grotesk); font-weight:700; font-size:10px; letter-spacing:.08em; text-transform:uppercase; margin-left:4px}
-  .verdict{font-family:var(--grotesk); font-weight:700; font-size:11px; letter-spacing:.08em; text-transform:uppercase}
+  .verdict{display:inline-flex; align-items:center; gap:6px; font-family:var(--grotesk); font-weight:700; font-size:11px; letter-spacing:.08em; text-transform:uppercase}
+  .verdict-dot{width:8px; height:8px; border-radius:50%; flex:0 0 auto; background:currentColor}
   .verdict.buy{color:var(--ink)}
-  .verdict.caution{color:var(--ink); text-decoration:underline; text-underline-offset:2px}
+  .verdict.buy .verdict-dot{background:#2d8a4e}
+  .verdict.caution{color:var(--ink)}
+  .verdict.caution .verdict-dot{background:#c9a227}
   .verdict.skip,.verdict.pending{color:var(--ink500)}
+  .verdict.skip .verdict-dot{background:#b33}
   .tag{display:inline-block; font-family:var(--grotesk); font-size:10px; letter-spacing:.08em; text-transform:uppercase; font-weight:700;
        color:var(--ink); background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:1px 8px; margin-right:6px}
   .when{font-family:var(--mono); color:var(--ink500)}
@@ -422,9 +426,23 @@
     "maneuver airplane airplanes").split(" "));
 
   function buildVocab(words) {
+    var list = Array.isArray(words) ? words : String(words || "").split(" ").filter(Boolean);
     var v = new Map();
-    for (var i = 0; i < words.length; i++) v.set(words[i], i);
+    for (var i = 0; i < list.length; i++) v.set(list[i], i);
     return v;
+  }
+
+  function fmtDur(ms) {
+    var n = Number(ms);
+    if (!isFinite(n) || n <= 0) return "dropped";
+    var d = Math.floor(n / 864e5);
+    var h = Math.floor((n % 864e5) / 36e5);
+    var m = Math.floor((n % 36e5) / 6e4);
+    var s = Math.floor((n % 6e4) / 1000);
+    if (d >= 1) return d + "d" + (h ? " " + h + "h" : "");
+    if (h >= 1) return h + "h" + (m ? " " + m + "m" : "");
+    if (m >= 1) return m + "m " + (s < 10 ? "0" : "") + s + "s";
+    return s + "s";
   }
 
   function segment(label, V, maxWords) {
@@ -743,7 +761,7 @@
               processCsv: processCsv, applyFilters: applyFilters, toCsv: toCsv, toSeoCsv: toSeoCsv,
               seoScore: seoScore, buyScore: buyScore, spamBand: spamBand, buyVerdict: buyVerdict, withScores: withScores,
               dofollowMain: dofollowMain, hasTraffic: hasTraffic, keywordFromDomain: keywordFromDomain,
-              setKeywordVocab: setKeywordVocab,
+              setKeywordVocab: setKeywordVocab, fmtDur: fmtDur,
               normalizeDomain: normalizeDomain, parseDomainList: parseDomainList,
               STOPWORDS: STOPWORDS, COMMERCIAL: COMMERCIAL, AMERICAN: AMERICAN };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -1008,12 +1026,7 @@ function currentRows(){
   return filtered;
 }
 
-function fmtDur(ms){
-  const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5), m=Math.floor(ms%36e5/6e4);
-  if(d>=1) return d+"d"+(h?" "+h+"h":"");
-  if(h>=1) return h+"h"+(m?" "+m+"m":"");
-  return Math.max(m,0)+"m";
-}
+function fmtDur(ms){ return DropCore.fmtDur(ms); }
 
 const ROW_H = 42, BUFFER = 14;
 let COLS = 7;
@@ -1026,12 +1039,12 @@ const COL_TIPS = {
   letters: "Character count of the name, excluding the .co.uk / .uk ending.",
   drop: "Time left until this name is due to drop at Nominet.",
   brand: "Brand score: name quality from the Nominet hunt (dictionary words, invented brandables, a small .co.uk boost). This is not Rank or Ref, and it does not change Verdict or SEO score.",
-  seo: "SEO score: DataForSEO only — dofollow Ref, Rank, spam, UK ETV, and UK monthly searches for the name. Brand score does not change this.",
+  seo: "SEO score: dofollow Ref + Rank − spam + UK ETV + UK monthly searches. DataForSEO only. Brand score does not change this.",
   tags: "commercial = buyer/service word; hyphen = hyphenated; invented = short pronounceable non-word.",
   rank: "Rank: DataForSEO backlink rank. Higher means a stronger link profile.",
   ref: "Ref: referring main domains — how many unique websites link to this name. SEO score uses dofollow Ref (total minus nofollow).",
   spam: "Spam is 0-100 from DataForSEO. Higher is worse. 0-30 low, 31-60 medium, 61-100 high. 50 is medium.",
-  verdict: "Buy, Caution, or Skip from spam, Rank/Ref, UK traffic, and monthly searches for the name. 50 spam with links is Caution. Unchecked stays —.",
+  verdict: "Buy (green), Research (amber), or Ignore (red) from spam, Rank/Ref, UK traffic, and monthly searches. 50 spam with links is Research. Unchecked stays —.",
   etv: "ETV: estimated UK organic clicks from DataForSEO Labs. Filled by Check SEO.",
   kw: "KW: hyphens become spaces and glued names split into dictionary words (prepschools.co.uk → “prep schools”). Google Ads exact UK volume, not Keyword Planner’s grouped estimate.",
   checked: "When Rank, Ref, Spam, ETV, and KW were last fetched. Cached names are not billed again."
@@ -1178,8 +1191,8 @@ function fmtSpam(r){
 }
 function verdictHtml(r){
   if(!r.checkedAt || !r.verdict) return '<span class="verdict pending">—</span>';
-  const label = r.verdict==="buy" ? "Buy" : (r.verdict==="caution" ? "Caution" : "Skip");
-  return '<span class="verdict '+r.verdict+'">'+label+'</span>';
+  const label = r.verdict==="buy" ? "Buy" : (r.verdict==="caution" ? "Research" : "Ignore");
+  return '<span class="verdict '+r.verdict+'"><span class="verdict-dot" aria-hidden="true"></span>'+label+'</span>';
 }
 function fmtChecked(iso){
   if(!iso) return '<span class="muted">not yet</span>';
@@ -1231,7 +1244,7 @@ function rowHtml(r, now){
     sel+dom+
     '<td class="wordscell" data-tip="'+COL_TIPS.words+'">'+words+'</td>'+
     '<td class="num" data-tip="'+COL_TIPS.letters+'">'+(r.letters||'')+'</td>'+
-    '<td data-tip="'+COL_TIPS.drop+'"><span class="'+ttdCls+'" title="'+(r.drop_time||'')+'">'+until+'</span></td>'+
+    '<td data-tip="'+COL_TIPS.drop+'"><span class="'+ttdCls+'" data-drop-ms="'+(r.drop_ms||'')+'" title="'+(r.drop_time||'')+'">'+until+'</span></td>'+
     '<td class="num" data-tip="'+COL_TIPS.brand+'">'+Number(r.score||0).toFixed(2)+'</td>'+
     '<td data-tip="'+COL_TIPS.tags+'">'+tagHtml(r)+'</td>'+
     '</tr>';
@@ -1251,6 +1264,28 @@ function renderWindow(){
   for(let i=start;i<end;i++) html += rowHtml(viewRows[i], now);
   html += '<tr class="spacer"><td colspan="'+COLS+'" style="height:'+((total-end)*ROW_H)+'px;padding:0;border:0"></td></tr>';
   tb.innerHTML = html;
+}
+
+function tickDrop(){
+  if(view==="seo") return;
+  const now = Date.now();
+  document.querySelectorAll("#tbody [data-drop-ms]").forEach(el=>{
+    const dropMs = Number(el.getAttribute("data-drop-ms"));
+    if(!dropMs) return;
+    const diff = dropMs - now;
+    const dropped = diff<=0;
+    const urgent = diff>0 && diff < 864e5;
+    const soon = diff>=864e5 && diff < 5*864e5;
+    el.textContent = dropped ? "dropped" : fmtDur(diff);
+    el.className = urgent ? "ttd urgent" : (soon ? "ttd soon" : (dropped ? "ttd dropped" : "ttd"));
+  });
+}
+
+let dropTimer = null;
+function syncDropTimer(){
+  const need = view!=="seo" && viewRows.some(r=>r && r.drop_ms);
+  if(need && !dropTimer) dropTimer = setInterval(tickDrop, 1000);
+  else if(!need && dropTimer){ clearInterval(dropTimer); dropTimer = null; }
 }
 
 function render(){
@@ -1303,6 +1338,7 @@ function render(){
 
   if(wrap) wrap.scrollTop = 0;
   renderWindow();
+  syncDropTimer();
 
   document.querySelectorAll("thead th").forEach(th=>{
     if(!th.dataset.k) return;

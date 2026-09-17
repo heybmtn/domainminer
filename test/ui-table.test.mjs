@@ -74,3 +74,28 @@ test("Check SEO backfills rows missing organic_count, search_volume, or a stale 
   assert.match(html, /row\.search_volume == null \|\| row\.search_volume === ""/);
   assert.match(html, /row\.keyword \|\| ""\) !== DropCore\.keywordFromDomain\(d\)/);
 });
+
+test("SEO score hover explains the formula in plain language", () => {
+  assert.match(html, /dofollow Ref \+ Rank/);
+  assert.match(html, /UK ETV \+ UK monthly searches/);
+  assert.match(html, /Brand score does not change this/);
+});
+
+test("Verdict is Buy, Research, or Ignore with a traffic-light dot", () => {
+  assert.match(html, /verdict==="buy" \? "Buy" : \(r\.verdict==="caution" \? "Research" : "Ignore"\)/);
+  assert.match(html, /verdict-dot/);
+  assert.match(html, /Buy \(green\), Research \(amber\), or Ignore \(red\)/);
+  assert.match(html, /50 spam with links is Research/);
+  assert.match(html, /\.verdict\.buy \.verdict-dot\{background:#2d8a4e\}/);
+  assert.match(html, /\.verdict\.caution \.verdict-dot\{background:#c9a227\}/);
+  assert.match(html, /\.verdict\.skip \.verdict-dot\{background:#b33\}/);
+  assert.doesNotMatch(html, />Caution</);
+  assert.doesNotMatch(html, /: "Skip"/);
+});
+
+test("Time to drop ticks every second with minutes and seconds under an hour", () => {
+  assert.match(html, /setInterval\(tickDrop, 1000\)/);
+  assert.match(html, /data-drop-ms=/);
+  assert.match(html, /function tickDrop/);
+  assert.match(html, /m \+ "m " \+ \(s < 10 \? "0" : ""\) \+ s \+ "s"/);
+});
