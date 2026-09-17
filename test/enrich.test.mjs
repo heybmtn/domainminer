@@ -194,6 +194,57 @@ test("old cache missing search_volume backfills volume only", async () => {
   assert.equal(calls.length, 1);
 });
 
+test("glued names query the spaced dictionary phrase", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
+  const cache = createCache(path.join(dir, "seo-cache.json"));
+  const calls = [];
+  const client = mockClient(calls);
+  const out = await enrichDomains(["prepschools.co.uk"], { cache, client });
+  const volumeCall = calls.find((c) => c.pathname.includes("search_volume"));
+  assert.ok(volumeCall);
+  assert.deepEqual(volumeCall.task.keywords, ["prep schools"]);
+  assert.equal(keywordFromDomain("prepschools.co.uk"), "prep schools");
+  assert.equal(out.items[0].keyword, "prep schools");
+  assert.equal(out.items[0].search_volume, 12100);
+});
+
+test("old cache with glued keyword backfills the spaced phrase", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
+  const cache = createCache(path.join(dir, "seo-cache.json"));
+  await cache.setMany({
+    "prepschools.co.uk": {
+      domain: "prepschools.co.uk",
+      rank: 80,
+      referring_domains: 20,
+      referring_main_domains: 15,
+      spam_score: 5,
+      etv: 18.5,
+      organic_count: 7,
+      keyword: "prepschools",
+      search_volume: 10,
+      checkedAt: "2026-01-01T00:00:00.000Z",
+    },
+  });
+  const calls = [];
+  const client = mockClient(calls);
+  const out = await enrichDomains(["prepschools.co.uk"], { cache, client });
+  assert.equal(out.fetched, 0);
+  assert.equal(out.cached, 0);
+  assert.equal(out.traffic, 0);
+  assert.equal(out.volume, 1);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].pathname, /search_volume/);
+  assert.deepEqual(calls[0].task.keywords, ["prep schools"]);
+  assert.equal(out.items[0].keyword, "prep schools");
+  assert.equal(out.items[0].search_volume, 12100);
+  assert.equal(out.items[0].organic_count, 7);
+
+  const again = await enrichDomains(["prepschools.co.uk"], { cache, client });
+  assert.equal(again.cached, 1);
+  assert.equal(again.volume, 0);
+  assert.equal(calls.length, 1);
+});
+
 test("force:true overwrites cache and fetches again", async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
   const cache = createCache(path.join(dir, "seo-cache.json"));
