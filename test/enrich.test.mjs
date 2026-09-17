@@ -4,9 +4,21 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createCache } from "../lib/cache.mjs";
-import { enrichDomains, buildExpiringTask } from "../lib/enrich.mjs";
+import { enrichDomains, buildExpiringTask, keywordFromDomain } from "../lib/enrich.mjs";
 
 function bulkPayload(pathname, items, cost = 0.01) {
+  if (pathname.includes("search_volume")) {
+    return {
+      status_code: 20000,
+      cost,
+      tasks: [{
+        status_code: 20000,
+        cost,
+        result: items,
+        data: { function: "search_volume" },
+      }],
+    };
+  }
   const fn = pathname.includes("ranks") ? "bulk_ranks"
     : pathname.includes("spam") ? "bulk_spam_score"
     : pathname.includes("traffic") ? "bulk_traffic_estimation"
@@ -26,7 +38,14 @@ function bulkPayload(pathname, items, cost = 0.01) {
 function mockClient(calls) {
   return {
     async post(pathname, task) {
-      calls.push({ pathname, task: { ...task }, targets: [...(task.targets || [])] });
+      calls.push({ pathname, task: { ...task }, targets: [...(task.targets || [])], keywords: [...(task.keywords || [])] });
+      if (pathname.includes("search_volume")) {
+        const items = (task.keywords || []).map((keyword) => ({
+          keyword,
+          search_volume: keyword === "prep schools" ? 12100 : 40,
+        }));
+        return bulkPayload(pathname, items);
+      }
       const items = (task.targets || []).map((target) => {
         if (pathname.includes("ranks")) return { target, rank: 120 };
         if (pathname.includes("spam")) return { target, spam_score: 8 };
@@ -59,17 +78,24 @@ test("second enrich of the same domain does not call DataForSEO", async () => {
   assert.equal(first.fetched, 1);
   assert.equal(first.cached, 0);
   assert.equal(first.traffic, 0);
-  assert.equal(calls.length, 4);
+  assert.equal(first.volume, 0);
+  assert.equal(calls.length, 5);
   const trafficCall = calls.find((c) => c.pathname.includes("traffic"));
   assert.ok(trafficCall);
   assert.equal(trafficCall.task.location_name, "United Kingdom");
   assert.equal(trafficCall.task.language_code, "en");
+  const volumeCall = calls.find((c) => c.pathname.includes("search_volume"));
+  assert.ok(volumeCall);
+  assert.equal(volumeCall.task.location_code, 2826);
+  assert.deepEqual(volumeCall.task.keywords, ["example"]);
   assert.equal(first.items[0].domain, "example.co.uk");
   assert.equal(first.items[0].rank, 120);
   assert.equal(first.items[0].referring_main_domains, 11);
   assert.equal(first.items[0].referring_main_domains_nofollow, 2);
   assert.equal(first.items[0].etv, 18.5);
   assert.equal(first.items[0].organic_count, 7);
+  assert.equal(first.items[0].search_volume, 40);
+  assert.equal(first.items[0].keyword, "example");
   assert.equal(first.items[0].nameScore, 4.5);
   assert.equal(first.items[0].verdict, "buy");
   assert.ok(first.items[0].buyScore > 4.5);
@@ -79,17 +105,20 @@ test("second enrich of the same domain does not call DataForSEO", async () => {
   assert.equal(second.fetched, 0);
   assert.equal(second.cached, 1);
   assert.equal(second.traffic, 0);
-  assert.equal(calls.length, 4, "cache hit must not POST again");
+  assert.equal(second.volume, 0);
+  assert.equal(calls.length, 5, "cache hit must not POST again");
   assert.equal(second.items[0].cached, true);
   assert.equal(second.items[0].rank, 120);
   assert.equal(second.items[0].organic_count, 7);
+  assert.equal(second.items[0].search_volume, 40);
 
   const disk = JSON.parse(await readFile(path.join(dir, "seo-cache.json"), "utf8"));
   assert.ok(disk["example.co.uk"]);
   assert.equal(disk["example.co.uk"].organic_count, 7);
+  assert.equal(disk["example.co.uk"].search_volume, 40);
 });
 
-test("old cache missing organic_count backfills traffic only", async () => {
+test("old cache missing organic_count backfills traffic and volume", async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
   const cache = createCache(path.join(dir, "seo-cache.json"));
   await cache.setMany({
@@ -109,17 +138,60 @@ test("old cache missing organic_count backfills traffic only", async () => {
   assert.equal(out.fetched, 0);
   assert.equal(out.cached, 0);
   assert.equal(out.traffic, 1);
-  assert.equal(calls.length, 1);
-  assert.match(calls[0].pathname, /bulk_traffic_estimation/);
+  assert.equal(out.volume, 1);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.some((c) => c.pathname.includes("bulk_traffic_estimation")));
+  assert.ok(calls.some((c) => c.pathname.includes("search_volume")));
   assert.equal(out.items[0].rank, 80);
   assert.equal(out.items[0].etv, 18.5);
   assert.equal(out.items[0].organic_count, 7);
+  assert.equal(out.items[0].search_volume, 40);
   assert.equal(out.items[0].verdict, "buy");
 
   const again = await enrichDomains(["old.uk"], { cache, client });
   assert.equal(again.cached, 1);
   assert.equal(again.traffic, 0);
-  assert.equal(calls.length, 1, "organic_count 0 after a real fetch must not refetch; 7 is a hit");
+  assert.equal(again.volume, 0);
+  assert.equal(calls.length, 2, "full cache after traffic+volume backfill must not refetch");
+});
+
+test("old cache missing search_volume backfills volume only", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
+  const cache = createCache(path.join(dir, "seo-cache.json"));
+  await cache.setMany({
+    "prep-schools.co.uk": {
+      domain: "prep-schools.co.uk",
+      rank: 80,
+      referring_domains: 20,
+      referring_main_domains: 15,
+      spam_score: 5,
+      etv: 18.5,
+      organic_count: 7,
+      checkedAt: "2026-01-01T00:00:00.000Z",
+    },
+  });
+  const calls = [];
+  const client = mockClient(calls);
+  const out = await enrichDomains(["prep-schools.co.uk"], { cache, client });
+  assert.equal(out.fetched, 0);
+  assert.equal(out.cached, 0);
+  assert.equal(out.traffic, 0);
+  assert.equal(out.volume, 1);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].pathname, /search_volume/);
+  assert.deepEqual(calls[0].task.keywords, ["prep schools"]);
+  assert.equal(keywordFromDomain("prep-schools.co.uk"), "prep schools");
+  assert.equal(out.items[0].rank, 80);
+  assert.equal(out.items[0].etv, 18.5);
+  assert.equal(out.items[0].organic_count, 7);
+  assert.equal(out.items[0].search_volume, 12100);
+  assert.equal(out.items[0].keyword, "prep schools");
+  assert.equal(out.items[0].verdict, "buy");
+
+  const again = await enrichDomains(["prep-schools.co.uk"], { cache, client });
+  assert.equal(again.cached, 1);
+  assert.equal(again.volume, 0);
+  assert.equal(calls.length, 1);
 });
 
 test("force:true overwrites cache and fetches again", async () => {
@@ -129,7 +201,7 @@ test("force:true overwrites cache and fetches again", async () => {
   const client = mockClient(calls);
   await enrichDomains(["fresh.uk"], { cache, client });
   await enrichDomains(["fresh.uk"], { cache, client, force: true });
-  assert.equal(calls.length, 8);
+  assert.equal(calls.length, 10);
 });
 
 test("buildExpiringTask filters UK names expiring soon with a backlink floor", () => {

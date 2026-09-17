@@ -601,16 +601,29 @@
     return Math.max(0, ref - nof);
   }
 
+  function keywordFromDomain(input) {
+    var d = normalizeDomain(input) || String(input || "").trim().toLowerCase();
+    if (!d) return "";
+    var label = d;
+    if (label.slice(-6) === ".co.uk") label = label.slice(0, -6);
+    else if (label.slice(-3) === ".uk") label = label.slice(0, -3);
+    else {
+      var dot = label.lastIndexOf(".");
+      if (dot > 0) label = label.slice(0, dot);
+    }
+    return label.replace(/-/g, " ").replace(/\s+/g, " ").trim();
+  }
+
   function hasTraffic(m) {
     m = m || {};
-    return (Number(m.etv) || 0) > 0 || (Number(m.organic_count) || 0) > 0;
+    return (Number(m.etv) || 0) > 0 || (Number(m.search_volume) || 0) > 0;
   }
 
   function seoScore(m) {
     m = m || {};
     return round2(Math.log1p(dofollowMain(m)) + (Number(m.rank) || 0) / 50
       - (Number(m.spam_score) || 0) / 5 + Math.log1p(Number(m.etv) || 0)
-      + Math.log1p(Number(m.organic_count) || 0));
+      + Math.log1p(Number(m.search_volume) || 0));
   }
 
   function buyScore(m) {
@@ -646,7 +659,7 @@
     }
     if (!links && !traffic) {
       return { verdict: "skip", verdictRank: 2, spam_band: band.key,
-        reason: "No meaningful Rank, Ref, or UK traffic. Skip — nothing to buy for SEO." };
+        reason: "No meaningful Rank, Ref, UK traffic, or search volume. Skip — nothing to buy for SEO." };
     }
     if (spam >= 31) {
       return { verdict: "caution", verdictRank: 1, spam_band: band.key,
@@ -654,11 +667,13 @@
     }
     if (links && traffic) {
       return { verdict: "buy", verdictRank: 0, spam_band: band.key,
-        reason: "Low spam with Rank/Ref and UK traffic. Buy." };
+        reason: "Low spam with Rank/Ref and UK traffic or search volume. Buy." };
     }
     if (traffic) {
       return { verdict: "buy", verdictRank: 0, spam_band: band.key,
-        reason: "Low spam with UK organic traffic. Buy." };
+        reason: (Number(row.etv) || 0) > 0
+          ? "Low spam with UK organic traffic. Buy."
+          : "Low spam with UK search volume. Buy." };
     }
     return { verdict: "buy", verdictRank: 0, spam_band: band.key,
       reason: "Low spam (0-30) with Rank or Ref. Buy." };
@@ -706,10 +721,10 @@
   }
 
   function toSeoCsv(rows) {
-    var head = "domain,rank,referring_domains,referring_main_domains,referring_main_domains_nofollow,spam_score,spam_band,etv,organic_count,nameScore,seoScore,buyScore,verdict,checkedAt";
+    var head = "domain,keyword,rank,referring_domains,referring_main_domains,referring_main_domains_nofollow,spam_score,spam_band,etv,organic_count,search_volume,nameScore,seoScore,buyScore,verdict,checkedAt";
     var body = rows.map(function (r) {
-      return [r.domain, r.rank, r.referring_domains, r.referring_main_domains, r.referring_main_domains_nofollow,
-        r.spam_score, r.spam_band, r.etv, r.organic_count, r.nameScore, r.seoScore, r.buyScore, r.verdict, r.checkedAt].map(csvCell).join(",");
+      return [r.domain, r.keyword, r.rank, r.referring_domains, r.referring_main_domains, r.referring_main_domains_nofollow,
+        r.spam_score, r.spam_band, r.etv, r.organic_count, r.search_volume, r.nameScore, r.seoScore, r.buyScore, r.verdict, r.checkedAt].map(csvCell).join(",");
     });
     return head + "\n" + body.join("\n") + "\n";
   }
@@ -717,7 +732,7 @@
   var api = { buildVocab: buildVocab, segment: segment, tokenise: tokenise, makeCandidate: makeCandidate,
               processCsv: processCsv, applyFilters: applyFilters, toCsv: toCsv, toSeoCsv: toSeoCsv,
               seoScore: seoScore, buyScore: buyScore, spamBand: spamBand, buyVerdict: buyVerdict, withScores: withScores,
-              dofollowMain: dofollowMain, hasTraffic: hasTraffic,
+              dofollowMain: dofollowMain, hasTraffic: hasTraffic, keywordFromDomain: keywordFromDomain,
               normalizeDomain: normalizeDomain, parseDomainList: parseDomainList,
               STOPWORDS: STOPWORDS, COMMERCIAL: COMMERCIAL, AMERICAN: AMERICAN };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -770,6 +785,8 @@ function blankSeoRow(d, extra){
     spam_score: extra.spam_score != null ? extra.spam_score : "",
     etv: extra.etv != null ? extra.etv : "",
     organic_count: extra.organic_count != null ? extra.organic_count : "",
+    keyword: extra.keyword != null ? extra.keyword : DropCore.keywordFromDomain(d),
+    search_volume: extra.search_volume != null ? extra.search_volume : "",
     checkedAt: extra.checkedAt || "",
     expiration_datetime: extra.expiration_datetime || ""
   });
@@ -997,14 +1014,14 @@ const COL_TIPS = {
   letters: "Character count of the name, excluding the .co.uk / .uk ending.",
   drop: "Time left until this name is due to drop at Nominet.",
   brand: "Brand score: name quality from the Nominet hunt (dictionary words, invented brandables, a small .co.uk boost). This is not Rank or Ref, and it does not change Verdict or SEO score.",
-  seo: "SEO score: DataForSEO only — dofollow Ref, Rank, spam, UK ETV, and ranking keywords. Brand score does not change this.",
+  seo: "SEO score: DataForSEO only — dofollow Ref, Rank, spam, UK ETV, and UK monthly searches for the name. Brand score does not change this.",
   tags: "commercial = buyer/service word; hyphen = hyphenated; invented = short pronounceable non-word.",
   rank: "Rank: DataForSEO backlink rank. Higher means a stronger link profile.",
   ref: "Ref: referring main domains — how many unique websites link to this name. SEO score uses dofollow Ref (total minus nofollow).",
   spam: "Spam is 0-100 from DataForSEO. Higher is worse. 0-30 low, 31-60 medium, 61-100 high. 50 is medium.",
-  verdict: "Buy, Caution, or Skip from spam, Rank/Ref, and UK traffic. 50 spam with links is Caution. Unchecked stays —.",
+  verdict: "Buy, Caution, or Skip from spam, Rank/Ref, UK traffic, and monthly searches for the name. 50 spam with links is Caution. Unchecked stays —.",
   etv: "ETV: estimated UK organic clicks from DataForSEO Labs. Filled by Check SEO.",
-  kw: "KW: how many keywords this name still ranks for in the UK.",
+  kw: "KW: UK monthly searches for this name as a keyword (prep-schools.co.uk → “prep schools”).",
   checked: "When Rank, Ref, Spam, ETV, and KW were last fetched. Cached names are not billed again."
 };
 const LIST_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-words"><col class="col-num"><col class="col-ttd"><col class="col-brand"><col class="col-tags">';
@@ -1028,7 +1045,7 @@ const SEO_HEAD = '<tr>'+
   '<th data-k="referring_main_domains" class="num" data-tip="'+COL_TIPS.ref+'">Ref <span class="ar"></span></th>'+
   '<th data-k="spam_score" class="num" data-tip="'+COL_TIPS.spam+'">Spam <span class="ar"></span></th>'+
   '<th data-k="etv" class="num" data-tip="'+COL_TIPS.etv+'">ETV <span class="ar"></span></th>'+
-  '<th data-k="organic_count" class="num" data-tip="'+COL_TIPS.kw+'">KW <span class="ar"></span></th>'+
+  '<th data-k="search_volume" class="num" data-tip="'+COL_TIPS.kw+'">KW <span class="ar"></span></th>'+
   '<th data-k="checkedAt" data-tip="'+COL_TIPS.checked+'">Checked <span class="ar"></span></th>'+
   '</tr>';
 
@@ -1125,7 +1142,7 @@ function applyViewChrome(){
   if(seo){
     if(["score","letters","drop_ms","words"].indexOf(sortKey)>=0){ sortKey="verdictRank"; sortDir=1; }
   } else {
-    if(["buyScore","seoScore","rank","referring_main_domains","spam_score","etv","organic_count","checkedAt","nameScore","verdictRank"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
+    if(["buyScore","seoScore","rank","referring_main_domains","spam_score","etv","organic_count","search_volume","checkedAt","nameScore","verdictRank"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
   }
   setTableHead();
   const dropEl=$("#dropstate");
@@ -1181,7 +1198,7 @@ function rowHtml(r, now){
       '<td class="num" data-tip="'+COL_TIPS.ref+'">'+(checked?fmtNum(r.referring_main_domains):'<span class="muted">—</span>')+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.spam+'">'+fmtSpam(r)+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.etv+'">'+(checked?fmtNum(r.etv):'<span class="muted">—</span>')+'</td>'+
-      '<td class="num" data-tip="'+COL_TIPS.kw+'">'+(checked?fmtNum(r.organic_count):'<span class="muted">—</span>')+'</td>'+
+      '<td class="num" data-tip="'+COL_TIPS.kw+'">'+(checked?fmtNum(r.search_volume):'<span class="muted">—</span>')+'</td>'+
       '<td class="when" data-tip="'+COL_TIPS.checked+'">'+fmtChecked(r.checkedAt)+'</td>'+
       '</tr>';
   }
@@ -1404,7 +1421,8 @@ async function checkSeo({ force=false, onlySelected=false } = {}){
   let targets = onlySelected ? seoRows.filter(r=>selected.has(r.domain)).map(r=>r.domain) : seoRows.map(r=>r.domain);
   if(!force) targets = targets.filter(d=>{
     const row = seoRows.find(r=>r.domain===d);
-    return !row || !row.checkedAt || row.organic_count == null || row.organic_count === "";
+    return !row || !row.checkedAt || row.organic_count == null || row.organic_count === ""
+      || row.search_volume == null || row.search_volume === "";
   });
   if(!targets.length){
     setSeoStatus(force ? "Select names to recheck." : "Nothing new to fetch — already checked names are skipped.");
@@ -1426,6 +1444,7 @@ async function checkSeo({ force=false, onlySelected=false } = {}){
     sortKey="verdictRank"; sortDir=1;
     setSeoStatus("checked "+(data.items||[]).length+", skipped "+(data.cached||0)+" cached, fetched "+(data.fetched||0)
       +(data.traffic?(", traffic "+data.traffic):"")
+      +(data.volume?(", volume "+data.volume):"")
       +(data.cost?(" · $"+data.cost):""));
     render();
   }catch(err){
@@ -1478,6 +1497,8 @@ $("#seohunt").addEventListener("click", async ()=>{
         referring_main_domains_nofollow: it.referring_main_domains_nofollow,
         etv: it.etv,
         organic_count: it.organic_count,
+        search_volume: it.search_volume,
+        keyword: it.keyword,
         expiration_datetime: it.expiration_datetime,
         nameScore: 0
       };

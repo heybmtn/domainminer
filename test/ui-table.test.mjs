@@ -16,7 +16,7 @@ test("SEO domain headers are numeric and have hover explainers", () => {
   for (const label of ["Verdict", "SEO score", "Brand score", "Rank", "Ref", "Spam", "ETV", "KW", "Checked"]) {
     assert.match(head, new RegExp(`data-tip="[^"]+"[^>]*>${label}`), `${label} needs a data-tip`);
   }
-  for (const k of ["seoScore", "nameScore", "rank", "referring_main_domains", "spam_score", "etv", "organic_count"]) {
+  for (const k of ["seoScore", "nameScore", "rank", "referring_main_domains", "spam_score", "etv", "search_volume"]) {
     assert.match(head, new RegExp(`data-k="${k}" class="num"`), `${k} header must be right-aligned`);
   }
   assert.match(head, /data-k="verdictRank"/);
@@ -48,9 +48,11 @@ test("Spam hover explains 0-100 bands and that 50 is medium", () => {
   assert.match(html, /50 is medium/);
 });
 
-test("ETV and KW hovers describe UK traffic", () => {
+test("ETV and KW hovers describe UK traffic and monthly searches", () => {
   assert.match(html, /ETV: estimated UK organic clicks/);
-  assert.match(html, /KW: how many keywords this name still ranks for in the UK/);
+  assert.match(html, /KW: UK monthly searches for this name as a keyword/);
+  assert.match(html, /prep-schools\.co\.uk/);
+  assert.doesNotMatch(html, /still ranks for/);
   assert.doesNotMatch(html, /Check SEO does not fill this yet/);
 });
 
@@ -63,6 +65,7 @@ test("user-facing copy says SEO domains, not leftovers", () => {
   assert.doesNotMatch(html, /seo-leftovers/);
 });
 
-test("Check SEO backfills rows missing organic_count", () => {
+test("Check SEO backfills rows missing organic_count or search_volume", () => {
   assert.match(html, /row\.organic_count == null \|\| row\.organic_count === ""/);
+  assert.match(html, /row\.search_volume == null \|\| row\.search_volume === ""/);
 });
