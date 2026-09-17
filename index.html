@@ -28,10 +28,8 @@
   .filemeta{font-family:var(--mono); font-size:12px; color:var(--ink500); text-align:right}
   .filemeta strong{color:var(--ink)}
 
-  /* cards: 2px border signature, black panel header */
+  /* cards: 2px border signature */
   .win{background:var(--surface); border:0; border-radius:0; overflow:hidden}
-  .tb{background:var(--ink); color:#fff; padding:10px 16px; font-family:var(--grotesk);
-      font-weight:700; font-size:14px; letter-spacing:.01em}
   .x{display:none}
   .bd{padding:0; background:var(--surface)}
   h2{display:none}
@@ -203,12 +201,11 @@
 <div class="wrap">
   <main>
     <section class="win">
-      <div class="tb"><span id="winname">Brandables</span></div>
       <div class="bd">
 
         <div class="tabs">
-          <button class="tab active" type="button" data-view="list">Brandables</button>
-          <button class="tab" type="button" data-view="seo">SEO domains <span id="seotab">(0)</span></button>
+          <button class="tab active" type="button" data-view="list">List + filters</button>
+          <button class="tab" type="button" data-view="seo">SEO Scan <span id="seotab">(0)</span></button>
           <button class="tab" type="button" data-view="favs">Watchlist <span id="favtab">(0)</span></button>
         </div>
 
@@ -313,7 +310,7 @@
             <div class="fld" style="margin:0">
               <label class="t" for="seopaste">Add domains</label>
               <textarea id="seopaste" rows="2" placeholder="one per line, or comma-separated"></textarea>
-              <div class="hint">Paste SEO domains, or add selected names from Brandables. Check SEO only runs for this list.</div>
+              <div class="hint">Paste names for SEO Scan, or add selected names from List + filters. Check SEO only runs for this list.</div>
             </div>
             <div class="filteractions" style="margin-top:12px;padding-top:12px">
               <button class="btn" id="seoadd" type="button">Add</button>
@@ -346,7 +343,7 @@
             <div class="split" id="splitline"></div>
             <div class="sb-actions">
               <span class="selinfo" id="selinfo"></span>
-              <button class="btn ghost" id="addtoseo" type="button" disabled title="Copy selected names to SEO domains (does not fetch yet)">Add to SEO</button>
+              <button class="btn ghost" id="addtoseo" type="button" disabled title="Copy selected names to SEO Scan (does not fetch yet)">Add to SEO</button>
               <button class="btn ghost" id="exportsel" type="button" disabled title="Export selected rows to CSV">Export selected</button>
               <button class="btn ghost" id="copyall" type="button" title="Copy all shown domains">Copy all</button>
               <button class="btn" id="download" type="button">Download CSV</button>
@@ -784,6 +781,7 @@ function saveSeen(){ try{ localStorage.setItem("droplist_seen", [...seen].join("
 function hd(s){ let h=5381; for(let i=0;i<s.length;i++) h=(Math.imul(h,33)^s.charCodeAt(i))>>>0; return h.toString(36); }
 function updateNewCount(n){ const el=$("#newcount"); if(el) el.textContent = (n!=null) ? "("+n.toLocaleString()+" new)" : ""; }
 let view = "list";
+let filtersWantOpen = true;
 let favMap = new Map();
 let favs = new Set();
 try { const raw = localStorage.getItem("droplist_favs"); if(raw) favs = new Set(JSON.parse(raw)); } catch(e){}
@@ -1034,7 +1032,7 @@ let viewRows = [];
 
 const COL_TIPS = {
   domainList: "The dropping name. Copy keeps it on the clipboard; star adds it to the Watchlist.",
-  domainSeo: "Name on the SEO domains list. Star adds it to the Watchlist.",
+  domainSeo: "Name on the SEO Scan list. Star adds it to the Watchlist.",
   words: "Dictionary words parsed from the letters before .co.uk / .uk.",
   letters: "Character count of the name, excluding the .co.uk / .uk ending.",
   drop: "Time left until this name is due to drop at Nominet.",
@@ -1157,13 +1155,14 @@ function applyViewChrome(){
   const bar=$("#seobar"); if(bar) bar.style.display = seo ? "block" : "none";
   const presets=$("#presets"); if(presets) presets.style.display = (view==="list" && allRows.length) ? "flex" : "none";
   const drawer=$("#filterdrawer");
-  if(drawer && view!=="list") drawer.classList.remove("open");
+  if(drawer){
+    if(view==="list" && allRows.length && filtersWantOpen) drawer.classList.add("open");
+    else drawer.classList.remove("open");
+  }
   const sb=document.querySelector(".statusbar");
   if(sb) sb.style.display = (view==="list" && !allRows.length) ? "none" : "";
   const tf=$("#togglefilters"); if(tf) tf.classList.toggle("on", drawer && drawer.classList.contains("open"));
   const add=$("#addtoseo"); if(add) add.style.display = seo ? "none" : "";
-  const wn=$("#winname");
-  if(wn) wn.textContent = seo ? "SEO domains" : (favsView ? "Watchlist" : "Brandables");
   if(seo){
     if(["score","letters","drop_ms","words"].indexOf(sortKey)>=0){ sortKey="verdictRank"; sortDir=1; }
   } else {
@@ -1300,12 +1299,12 @@ function render(){
   const wrap = $("#tablewrap");
   const showDrop = view==="list" && !allRows.length && !($("#proc") && $("#proc").style.display!=="none");
   if(view==="seo"){
-    $("#count").innerHTML = viewRows.length.toLocaleString()+" <small>seo domains</small>";
+    $("#count").innerHTML = viewRows.length.toLocaleString()+" <small>seo scan</small>";
     const nChk = seoRows.filter(r=>r.checkedAt).length;
     $("#splitline").innerHTML = "<b>"+nChk.toLocaleString()+"</b> checked · <b>"+(seoRows.length-nChk).toLocaleString()+"</b> pending";
     if(empty){
       empty.style.display = viewRows.length? "none":"block";
-      empty.textContent = "Paste SEO domains or add selected names from Brandables. Check SEO stays off until DataForSEO is configured.";
+      empty.textContent = "Paste names for SEO Scan, or add selected names from List + filters. Check SEO stays off until DataForSEO is configured.";
     }
     if(wrap) wrap.style.display = "";
   } else if(view==="favs"){
@@ -1314,7 +1313,7 @@ function render(){
     $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk · <b>"+(viewRows.length-co).toLocaleString()+"</b> .uk";
     if(empty){
       empty.style.display = viewRows.length? "none":"block";
-      empty.textContent = "Star names from Brandables or SEO domains to build a buy list.";
+      empty.textContent = "Star names from List + filters or SEO Scan to build a buy list.";
     }
     if(wrap) wrap.style.display = "";
   } else {
@@ -1330,7 +1329,7 @@ function render(){
         empty.style.display = viewRows.length? "none":"block";
         empty.textContent = allRows.length
           ? "No names match these filters. Loosen them or clear the keywords."
-          : "Load a Nominet list to hunt brandables.";
+          : "Load a Nominet list.";
       }
     }
   }
@@ -1369,9 +1368,10 @@ document.querySelectorAll(".chip[data-preset]").forEach(btn=>{
   btn.addEventListener("click", ()=> applyPreset(btn.getAttribute("data-preset")));
 });
 $("#togglefilters").addEventListener("click", ()=>{
+  filtersWantOpen = !filtersWantOpen;
   const d=$("#filterdrawer");
-  d.classList.toggle("open");
-  $("#togglefilters").classList.toggle("on", d.classList.contains("open"));
+  d.classList.toggle("open", filtersWantOpen);
+  $("#togglefilters").classList.toggle("on", filtersWantOpen);
 });
 
 $("#markseen").addEventListener("click", ()=>{
@@ -1391,7 +1391,7 @@ $("#resetseen").addEventListener("click", (e)=>{
 
 function downloadCsv(rows, tag){
   if(!rows.length) return;
-  const csv = (view==="seo" || tag==="seo-domains") ? DropCore.toSeoCsv(rows) : DropCore.toCsv(rows);
+  const csv = (view==="seo" || tag==="seo-scan") ? DropCore.toSeoCsv(rows) : DropCore.toCsv(rows);
   const blob = new Blob([csv], {type:"text/csv"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -1399,7 +1399,7 @@ function downloadCsv(rows, tag){
   a.href=url; a.download=(tag||"brandables")+"-"+d+".csv"; a.click();
   URL.revokeObjectURL(url);
 }
-$("#download").addEventListener("click", ()=> downloadCsv(currentRows(), view==="seo"?"seo-domains":(view==="favs"?"watchlist":"brandables")));
+$("#download").addEventListener("click", ()=> downloadCsv(currentRows(), view==="seo"?"seo-scan":(view==="favs"?"watchlist":"list")));
 $("#exportsel").addEventListener("click", ()=>{
   const rows = view==="seo" ? seoRows.filter(r=>selected.has(r.domain)) : allRows.filter(r=>selected.has(r.domain));
   downloadCsv(rows, view==="seo"?"seo-selected":"selected");
@@ -1443,7 +1443,7 @@ $("#tbody").addEventListener("change", e=>{
 $("#addtoseo").addEventListener("click", ()=>{
   const names = [...selected];
   const n = addSeoDomains(names);
-  toast(n ? n+" added" : "Already on SEO domains");
+  toast(n ? n+" added" : "Already on SEO Scan");
   updateSeoCount();
 });
 $("#seoadd").addEventListener("click", ()=>{
@@ -1561,7 +1561,7 @@ $("#seohunt").addEventListener("click", async ()=>{
     const n = addSeoDomains((data.items||[]).map(it=>it.domain), extras);
     view="seo";
     document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active", x.getAttribute("data-view")==="seo"));
-    setSeoStatus("Found "+(data.items||[]).length+", added "+n+" to SEO domains. Check SEO to fill rank/spam."
+    setSeoStatus("Found "+(data.items||[]).length+", added "+n+" to SEO Scan. Check SEO to fill rank/spam."
       +(data.cost?(" · $"+data.cost):""));
     render();
   }catch(err){

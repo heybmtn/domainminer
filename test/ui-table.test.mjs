@@ -60,10 +60,16 @@ test("ETV and KW hovers describe UK traffic and monthly searches", () => {
   assert.doesNotMatch(html, /Check SEO does not fill this yet/);
 });
 
-test("user-facing copy says SEO domains, not leftovers", () => {
-  assert.match(html, />SEO domains </);
-  assert.match(html, /Copy selected names to SEO domains/);
-  assert.match(html, /seo-domains/);
+test("chrome uses List + filters and SEO Scan, with no black window title bar", () => {
+  assert.match(html, />List \+ filters</);
+  assert.match(html, />SEO Scan </);
+  assert.match(html, /Copy selected names to SEO Scan/);
+  assert.match(html, /seo-scan/);
+  assert.match(html, /filtersWantOpen/);
+  assert.doesNotMatch(html, /id="winname"/);
+  assert.doesNotMatch(html, /class="tb"/);
+  assert.doesNotMatch(html, />SEO domains </);
+  assert.doesNotMatch(html, />Brandables</);
   assert.doesNotMatch(html, /SEO leftovers/);
   assert.doesNotMatch(html, /seo leftovers/);
   assert.doesNotMatch(html, /seo-leftovers/);
