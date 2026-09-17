@@ -693,8 +693,10 @@ function toast(msg){
   toastTimer = setTimeout(()=>{ el.hidden = true; }, 2200);
 }
 let seoConfigured = false;
+let seoAuthError = "";
 function applySeoEnabled(){
-  const msg = "SEO lookups need DataForSEO secrets in Cloudflare Pages.";
+  const missing = "SEO lookups need DataForSEO secrets in Cloudflare Pages.";
+  const msg = seoAuthError || missing;
   ["#seocheck","#seorecheck","#seohunt"].forEach(s=>{
     const b=$(s); if(!b) return;
     b.disabled = !seoConfigured;
@@ -703,14 +705,21 @@ function applySeoEnabled(){
   const banner = $("#seobanner");
   if(banner){
     banner.hidden = !!seoConfigured;
-    banner.textContent = msg;
+    banner.textContent = seoConfigured ? "" : msg;
   }
 }
 async function loadHealth(){
+  seoAuthError = "";
   try{
     const res = await fetch("/api/health");
     const data = await res.json();
-    seoConfigured = !!(data && data.configured);
+    const hasSecrets = !!(data && data.configured);
+    if (hasSecrets && data.authorized === false) {
+      seoConfigured = false;
+      seoAuthError = "DataForSEO rejected the API login/password. Use the credentials on app.dataforseo.com/api-access (not the dashboard password), then retry the Pages deploy.";
+    } else {
+      seoConfigured = hasSecrets && data.authorized !== false;
+    }
   }catch(e){
     seoConfigured = false;
   }

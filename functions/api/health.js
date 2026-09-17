@@ -1,10 +1,6 @@
 import { json, getCache } from "../_lib.js";
+import { healthPayload } from "../../lib/health.mjs";
 
 export async function onRequestGet({ env }) {
-  const cache = getCache(env);
-  return json({
-    ok: true,
-    configured: Boolean(env.DATAFORSEO_LOGIN && env.DATAFORSEO_PASSWORD),
-    cacheSize: await cache.size(),
-  });
+  return json(await healthPayload(env, getCache(env)));
 }
