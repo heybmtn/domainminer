@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buyScore, buyVerdict, seoScore, spamBand, withScores } from "../lib/score.mjs";
+import {
+  buyScore,
+  buyVerdict,
+  dofollowMain,
+  seoScore,
+  spamBand,
+  withScores,
+} from "../lib/score.mjs";
 
 test("seoScore rewards referring domains and rank, penalises spam", () => {
   const weak = seoScore({ rank: 0, referring_main_domains: 0, spam_score: 0, etv: 0 });
@@ -11,11 +18,25 @@ test("seoScore rewards referring domains and rank, penalises spam", () => {
   assert.ok(spammy < strong);
 });
 
+test("seoScore uses dofollow Ref and ranking-keyword count", () => {
+  const mixed = { referring_main_domains: 20, referring_main_domains_nofollow: 8, rank: 0, spam_score: 0 };
+  assert.equal(dofollowMain(mixed), 12);
+  const allFollow = seoScore({ ...mixed, referring_main_domains_nofollow: 0 });
+  const withNofollow = seoScore(mixed);
+  assert.ok(allFollow > withNofollow);
+
+  const noKw = seoScore({ rank: 0, referring_main_domains: 0, etv: 0, organic_count: 0 });
+  const withKw = seoScore({ rank: 0, referring_main_domains: 0, etv: 0, organic_count: 40 });
+  assert.equal(noKw, 0);
+  assert.ok(withKw > 0);
+});
+
 test("buyScore adds the Nominet name score", () => {
   const metrics = { rank: 100, referring_main_domains: 10, spam_score: 10, etv: 0, nameScore: 8 };
   const seo = seoScore(metrics);
   assert.equal(buyScore(metrics), Math.round((seo + 8) * 100) / 100);
   assert.equal(withScores(metrics).buyScore, buyScore(metrics));
+  assert.equal(withScores(metrics).seoScore, seo);
 });
 
 test("spam 50 is medium and caution when the name has links", () => {
@@ -51,6 +72,19 @@ test("low spam with referring domains is a buy", () => {
   });
   assert.equal(hint.verdict, "buy");
   assert.equal(hint.spam_band, "low");
+});
+
+test("low spam with UK traffic only is a buy", () => {
+  const hint = buyVerdict({
+    checkedAt: "2026-09-17T13:00:00.000Z",
+    spam_score: 8,
+    rank: 0,
+    referring_main_domains: 0,
+    etv: 12,
+    organic_count: 4,
+  });
+  assert.equal(hint.verdict, "buy");
+  assert.match(hint.reason, /traffic/i);
 });
 
 test("low spam with no links is a skip", () => {

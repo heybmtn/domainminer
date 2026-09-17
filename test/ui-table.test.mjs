@@ -11,36 +11,58 @@ function grab(name) {
   return m[1];
 }
 
-test("SEO leftover headers are numeric and have hover explainers", () => {
+test("SEO domain headers are numeric and have hover explainers", () => {
   const head = grab("SEO_HEAD");
-  for (const label of ["Verdict", "Brand score", "Rank", "Ref", "Spam", "ETV", "Checked"]) {
+  for (const label of ["Verdict", "SEO score", "Brand score", "Rank", "Ref", "Spam", "ETV", "KW", "Checked"]) {
     assert.match(head, new RegExp(`data-tip="[^"]+"[^>]*>${label}`), `${label} needs a data-tip`);
   }
-  for (const k of ["nameScore", "rank", "referring_main_domains", "spam_score", "etv"]) {
+  for (const k of ["seoScore", "nameScore", "rank", "referring_main_domains", "spam_score", "etv", "organic_count"]) {
     assert.match(head, new RegExp(`data-k="${k}" class="num"`), `${k} header must be right-aligned`);
   }
   assert.match(head, /data-k="verdictRank"/);
 });
 
-test("SEO leftover rows attach explainers to each metric cell", () => {
-  assert.match(html, /data-tip="'\+COL_TIPS\.brand\+'"/);
-  assert.match(html, /data-tip="'\+COL_TIPS\.rank\+'"/);
-  assert.match(html, /data-tip="'\+COL_TIPS\.ref\+'"/);
-  assert.match(html, /data-tip="'\+COL_TIPS\.spam\+'"/);
-  assert.match(html, /data-tip="'\+COL_TIPS\.etv\+'"/);
-  assert.match(html, /data-tip="'\+COL_TIPS\.checked\+'"/);
+test("SEO domain rows attach explainers to each metric cell", () => {
+  assert.match(html, /data-tip="'\+COL_TIPS\.seo\+'/);
+  assert.match(html, /data-tip="'\+COL_TIPS\.brand\+'/);
+  assert.match(html, /data-tip="'\+COL_TIPS\.rank\+'/);
+  assert.match(html, /data-tip="'\+COL_TIPS\.ref\+'/);
+  assert.match(html, /data-tip="'\+COL_TIPS\.spam\+'/);
+  assert.match(html, /data-tip="'\+COL_TIPS\.etv\+'/);
+  assert.match(html, /data-tip="'\+COL_TIPS\.kw\+'/);
+  assert.match(html, /data-tip="'\+COL_TIPS\.checked\+'/);
   assert.match(html, /function verdictHtml/);
   assert.match(html, /function fmtSpam/);
 });
 
-test("fixed layout gives Brand score its own column width", () => {
+test("fixed layout gives Brand score and SEO score their own column widths", () => {
   assert.match(html, /table\{table-layout:fixed/);
   assert.match(html, /col\.col-brand\{width:8\.8rem\}/);
+  assert.match(html, /col\.col-seo\{width:7\.6rem\}/);
   assert.match(html, /thead th\.num, td\.num\{text-align:right/);
-  assert.match(html, /SEO_COLS = '.*col-verdict.*col-brand.*col-num.*col-num.*col-spam.*col-num.*col-when/);
+  assert.match(html, /SEO_COLS = '.*col-verdict.*col-seo.*col-brand.*col-num.*col-num.*col-spam.*col-num.*col-kw.*col-when/);
 });
 
 test("Spam hover explains 0-100 bands and that 50 is medium", () => {
   assert.match(html, /Spam is 0-100 from DataForSEO/);
   assert.match(html, /50 is medium/);
+});
+
+test("ETV and KW hovers describe UK traffic", () => {
+  assert.match(html, /ETV: estimated UK organic clicks/);
+  assert.match(html, /KW: how many keywords this name still ranks for in the UK/);
+  assert.doesNotMatch(html, /Check SEO does not fill this yet/);
+});
+
+test("user-facing copy says SEO domains, not leftovers", () => {
+  assert.match(html, />SEO domains </);
+  assert.match(html, /Copy selected names to SEO domains/);
+  assert.match(html, /seo-domains/);
+  assert.doesNotMatch(html, /SEO leftovers/);
+  assert.doesNotMatch(html, /seo leftovers/);
+  assert.doesNotMatch(html, /seo-leftovers/);
+});
+
+test("Check SEO backfills rows missing organic_count", () => {
+  assert.match(html, /row\.organic_count == null \|\| row\.organic_count === ""/);
 });

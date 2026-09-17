@@ -1,6 +1,6 @@
 # Domain miner
 
-UK Nominet droplist filter for brandable resale hunting, plus an SEO leftovers queue.
+UK Nominet droplist filter for brandable resale hunting, plus an SEO domains queue.
 
 ## Run
 
@@ -18,8 +18,8 @@ Nominet filtering works without an API key. **Check SEO** and **Find expiring** 
 
 ## Hunts
 
-1. **Brandables** — load today’s Nominet `uk.csv.gz`. Presets (Clean brandable, Commercial, All names) apply immediately. Star a name to put it on the Watchlist; **Add to SEO** copies selected names onto the leftovers queue.
-2. **SEO leftovers** — paste or copy names here so you do not spend API on the whole drop file. Check SEO only runs for this list, and already-checked names are skipped.
+1. **Brandables** — load today’s Nominet `uk.csv.gz`. Presets (Clean brandable, Commercial, All names) apply immediately. Star a name to put it on the Watchlist; **Add to SEO** copies selected names onto the SEO domains list. Scoring here is **Brand score** only (dictionary / invented / `.co.uk` boost). No DataForSEO.
+2. **SEO domains** — paste or copy a short list here so you do not spend API on the whole drop file. Check SEO only runs for this list. Already-checked names are skipped; rows missing UK traffic (`organic_count`) get a traffic-only backfill. Scoring here is **SEO score** plus **Verdict** (spam, dofollow Ref, Rank, UK ETV, ranking keywords). Brand score is shown only when we already know it from Nominet.
 3. **Watchlist** — the buy list. Stars from either hunt.
 
 ## Tests
