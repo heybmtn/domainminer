@@ -94,12 +94,14 @@
   .sb-actions{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap}
 
   .tablewrap{overflow-y:auto; overflow-x:auto; max-height:calc(100vh - 220px)}
-  table{table-layout:fixed; border-collapse:collapse; width:100%; font-size:13px; min-width:980px}
+  table{table-layout:fixed; border-collapse:collapse; width:100%; font-size:13px; min-width:1180px}
   col.col-sel{width:40px}
   col.col-domain{width:auto}
   col.col-words{width:16%}
   col.col-num{width:6.6rem}
   col.col-brand{width:8.8rem}
+  col.col-seo{width:7.6rem}
+  col.col-kw{width:5.4rem}
   col.col-spam{width:7.6rem}
   col.col-verdict{width:7.4rem}
   col.col-ttd{width:8.2rem}
@@ -202,7 +204,7 @@
 
         <div class="tabs">
           <button class="tab active" type="button" data-view="list">Brandables</button>
-          <button class="tab" type="button" data-view="seo">SEO leftovers <span id="seotab">(0)</span></button>
+          <button class="tab" type="button" data-view="seo">SEO domains <span id="seotab">(0)</span></button>
           <button class="tab" type="button" data-view="favs">Watchlist <span id="favtab">(0)</span></button>
         </div>
 
@@ -307,7 +309,7 @@
             <div class="fld" style="margin:0">
               <label class="t" for="seopaste">Add domains</label>
               <textarea id="seopaste" rows="2" placeholder="one per line, or comma-separated"></textarea>
-              <div class="hint">Paste leftovers, or add selected names from Brandables. Check SEO only runs for this list.</div>
+              <div class="hint">Paste SEO domains, or add selected names from Brandables. Check SEO only runs for this list.</div>
             </div>
             <div class="filteractions" style="margin-top:12px;padding-top:12px">
               <button class="btn" id="seoadd" type="button">Add</button>
@@ -340,7 +342,7 @@
             <div class="split" id="splitline"></div>
             <div class="sb-actions">
               <span class="selinfo" id="selinfo"></span>
-              <button class="btn ghost" id="addtoseo" type="button" disabled title="Copy selected names to SEO leftovers (does not fetch yet)">Add to SEO</button>
+              <button class="btn ghost" id="addtoseo" type="button" disabled title="Copy selected names to SEO domains (does not fetch yet)">Add to SEO</button>
               <button class="btn ghost" id="exportsel" type="button" disabled title="Export selected rows to CSV">Export selected</button>
               <button class="btn ghost" id="copyall" type="button" title="Copy all shown domains">Copy all</button>
               <button class="btn" id="download" type="button">Download CSV</button>
@@ -592,10 +594,23 @@
   function round2(n) { return Math.round(n * 100) / 100; }
   var MIN_REF_LINKS = 5, MIN_RANK_LINKS = 40;
 
+  function dofollowMain(m) {
+    m = m || {};
+    var ref = Number(m.referring_main_domains) || 0;
+    var nof = Number(m.referring_main_domains_nofollow) || 0;
+    return Math.max(0, ref - nof);
+  }
+
+  function hasTraffic(m) {
+    m = m || {};
+    return (Number(m.etv) || 0) > 0 || (Number(m.organic_count) || 0) > 0;
+  }
+
   function seoScore(m) {
     m = m || {};
-    return round2(Math.log1p(Number(m.referring_main_domains) || 0) + (Number(m.rank) || 0) / 50
-      - (Number(m.spam_score) || 0) / 5 + Math.log1p(Number(m.etv) || 0));
+    return round2(Math.log1p(dofollowMain(m)) + (Number(m.rank) || 0) / 50
+      - (Number(m.spam_score) || 0) / 5 + Math.log1p(Number(m.etv) || 0)
+      + Math.log1p(Number(m.organic_count) || 0));
   }
 
   function buyScore(m) {
@@ -624,25 +639,35 @@
     var spam = Number(row.spam_score) || 0;
     var band = spamBand(spam);
     var links = hasMeaningfulLinks(row);
+    var traffic = hasTraffic(row);
     if (spam >= 61) {
       return { verdict: "skip", verdictRank: 2, spam_band: band.key,
-        reason: "High spam (61-100). Skip — toxic leftover, do not register." };
+        reason: "High spam (61-100). Skip — toxic equity, do not register." };
     }
-    if (!links) {
+    if (!links && !traffic) {
       return { verdict: "skip", verdictRank: 2, spam_band: band.key,
-        reason: "No meaningful Rank or Ref. Skip — nothing to buy for SEO." };
+        reason: "No meaningful Rank, Ref, or UK traffic. Skip — nothing to buy for SEO." };
     }
     if (spam >= 31) {
       return { verdict: "caution", verdictRank: 1, spam_band: band.key,
         reason: "Medium spam (31-60). Caution — inspect links before you register." };
     }
+    if (links && traffic) {
+      return { verdict: "buy", verdictRank: 0, spam_band: band.key,
+        reason: "Low spam with Rank/Ref and UK traffic. Buy." };
+    }
+    if (traffic) {
+      return { verdict: "buy", verdictRank: 0, spam_band: band.key,
+        reason: "Low spam with UK organic traffic. Buy." };
+    }
     return { verdict: "buy", verdictRank: 0, spam_band: band.key,
-      reason: "Low spam (0-30) with Rank or Ref. Buy for leftover SEO." };
+      reason: "Low spam (0-30) with Rank or Ref. Buy." };
   }
 
   function withScores(row) {
     var seo = seoScore(row);
     var hint = buyVerdict(row);
+    row.dofollow_main = dofollowMain(row);
     row.seoScore = seo;
     row.buyScore = round2(seo + (Number(row.nameScore) || 0));
     row.spam_band = hint.spam_band;
@@ -681,10 +706,10 @@
   }
 
   function toSeoCsv(rows) {
-    var head = "domain,rank,referring_domains,referring_main_domains,spam_score,spam_band,etv,nameScore,seoScore,buyScore,verdict,checkedAt";
+    var head = "domain,rank,referring_domains,referring_main_domains,referring_main_domains_nofollow,spam_score,spam_band,etv,organic_count,nameScore,seoScore,buyScore,verdict,checkedAt";
     var body = rows.map(function (r) {
-      return [r.domain, r.rank, r.referring_domains, r.referring_main_domains, r.spam_score, r.spam_band, r.etv,
-        r.nameScore, r.seoScore, r.buyScore, r.verdict, r.checkedAt].map(csvCell).join(",");
+      return [r.domain, r.rank, r.referring_domains, r.referring_main_domains, r.referring_main_domains_nofollow,
+        r.spam_score, r.spam_band, r.etv, r.organic_count, r.nameScore, r.seoScore, r.buyScore, r.verdict, r.checkedAt].map(csvCell).join(",");
     });
     return head + "\n" + body.join("\n") + "\n";
   }
@@ -692,6 +717,7 @@
   var api = { buildVocab: buildVocab, segment: segment, tokenise: tokenise, makeCandidate: makeCandidate,
               processCsv: processCsv, applyFilters: applyFilters, toCsv: toCsv, toSeoCsv: toSeoCsv,
               seoScore: seoScore, buyScore: buyScore, spamBand: spamBand, buyVerdict: buyVerdict, withScores: withScores,
+              dofollowMain: dofollowMain, hasTraffic: hasTraffic,
               normalizeDomain: normalizeDomain, parseDomainList: parseDomainList,
               STOPWORDS: STOPWORDS, COMMERCIAL: COMMERCIAL, AMERICAN: AMERICAN };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -740,8 +766,10 @@ function blankSeoRow(d, extra){
     rank: extra.rank != null ? extra.rank : "",
     referring_domains: extra.referring_domains != null ? extra.referring_domains : "",
     referring_main_domains: extra.referring_main_domains != null ? extra.referring_main_domains : "",
+    referring_main_domains_nofollow: extra.referring_main_domains_nofollow != null ? extra.referring_main_domains_nofollow : "",
     spam_score: extra.spam_score != null ? extra.spam_score : "",
     etv: extra.etv != null ? extra.etv : "",
+    organic_count: extra.organic_count != null ? extra.organic_count : "",
     checkedAt: extra.checkedAt || "",
     expiration_datetime: extra.expiration_datetime || ""
   });
@@ -927,7 +955,7 @@ function sortArr(arr){
     if(typeof x==="string" || typeof y==="string") cmp = d*String(x).localeCompare(String(y));
     else cmp = d*((Number(x)||0)-(Number(y)||0));
     if(cmp!==0) return cmp;
-    if(k==="verdictRank") return ((Number(b.nameScore)||0)-(Number(a.nameScore)||0));
+    if(k==="verdictRank") return ((Number(b.seoScore)||0)-(Number(a.seoScore)||0));
     return 0;
   });
 }
@@ -964,21 +992,23 @@ let viewRows = [];
 
 const COL_TIPS = {
   domainList: "The dropping name. Copy keeps it on the clipboard; star adds it to the Watchlist.",
-  domainSeo: "Name on the leftovers queue. Star adds it to the Watchlist.",
+  domainSeo: "Name on the SEO domains list. Star adds it to the Watchlist.",
   words: "Dictionary words parsed from the letters before .co.uk / .uk.",
   letters: "Character count of the name, excluding the .co.uk / .uk ending.",
   drop: "Time left until this name is due to drop at Nominet.",
-  brand: "Brand score: name quality from the Nominet hunt (dictionary words, invented brandables, a small .co.uk boost). This is not Rank or Ref.",
+  brand: "Brand score: name quality from the Nominet hunt (dictionary words, invented brandables, a small .co.uk boost). This is not Rank or Ref, and it does not change Verdict or SEO score.",
+  seo: "SEO score: DataForSEO only — dofollow Ref, Rank, spam, UK ETV, and ranking keywords. Brand score does not change this.",
   tags: "commercial = buyer/service word; hyphen = hyphenated; invented = short pronounceable non-word.",
   rank: "Rank: DataForSEO backlink rank. Higher means a stronger link profile.",
-  ref: "Ref: referring main domains — how many unique websites link to this name.",
+  ref: "Ref: referring main domains — how many unique websites link to this name. SEO score uses dofollow Ref (total minus nofollow).",
   spam: "Spam is 0-100 from DataForSEO. Higher is worse. 0-30 low, 31-60 medium, 61-100 high. 50 is medium.",
-  verdict: "Buy, Caution, or Skip from spam plus Rank and Ref. 50 spam with links is Caution, not a clear register.",
-  etv: "ETV: estimated traffic value. Check SEO does not fill this yet.",
-  checked: "When Rank, Ref, and Spam were last fetched. Cached names are not billed again."
+  verdict: "Buy, Caution, or Skip from spam, Rank/Ref, and UK traffic. 50 spam with links is Caution. Unchecked stays —.",
+  etv: "ETV: estimated UK organic clicks from DataForSEO Labs. Filled by Check SEO.",
+  kw: "KW: how many keywords this name still ranks for in the UK.",
+  checked: "When Rank, Ref, Spam, ETV, and KW were last fetched. Cached names are not billed again."
 };
 const LIST_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-words"><col class="col-num"><col class="col-ttd"><col class="col-brand"><col class="col-tags">';
-const SEO_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-verdict"><col class="col-brand"><col class="col-num"><col class="col-num"><col class="col-spam"><col class="col-num"><col class="col-when">';
+const SEO_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-verdict"><col class="col-seo"><col class="col-brand"><col class="col-num"><col class="col-num"><col class="col-spam"><col class="col-num"><col class="col-kw"><col class="col-when">';
 const LIST_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
   '<th data-k="domain" data-tip="'+COL_TIPS.domainList+'">Domain <span class="ar"></span></th>'+
@@ -992,11 +1022,13 @@ const SEO_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
   '<th data-k="domain" data-tip="'+COL_TIPS.domainSeo+'">Domain <span class="ar"></span></th>'+
   '<th data-k="verdictRank" data-tip="'+COL_TIPS.verdict+'">Verdict <span class="ar"></span></th>'+
+  '<th data-k="seoScore" class="num" data-tip="'+COL_TIPS.seo+'">SEO score <span class="ar"></span></th>'+
   '<th data-k="nameScore" class="num" data-tip="'+COL_TIPS.brand+'">Brand score <span class="ar"></span></th>'+
   '<th data-k="rank" class="num" data-tip="'+COL_TIPS.rank+'">Rank <span class="ar"></span></th>'+
   '<th data-k="referring_main_domains" class="num" data-tip="'+COL_TIPS.ref+'">Ref <span class="ar"></span></th>'+
   '<th data-k="spam_score" class="num" data-tip="'+COL_TIPS.spam+'">Spam <span class="ar"></span></th>'+
   '<th data-k="etv" class="num" data-tip="'+COL_TIPS.etv+'">ETV <span class="ar"></span></th>'+
+  '<th data-k="organic_count" class="num" data-tip="'+COL_TIPS.kw+'">KW <span class="ar"></span></th>'+
   '<th data-k="checkedAt" data-tip="'+COL_TIPS.checked+'">Checked <span class="ar"></span></th>'+
   '</tr>';
 
@@ -1067,7 +1099,7 @@ function setTableHead(){
   const thead = table && table.querySelector("thead");
   if(!table || !thead) return;
   const seo = view==="seo";
-  COLS = seo ? 9 : 7;
+  COLS = seo ? 11 : 7;
   let cg = table.querySelector("colgroup");
   if(!cg){ cg = document.createElement("colgroup"); table.insertBefore(cg, thead); }
   if(lastHeadView !== view){
@@ -1089,11 +1121,11 @@ function applyViewChrome(){
   const tf=$("#togglefilters"); if(tf) tf.classList.toggle("on", drawer && drawer.classList.contains("open"));
   const add=$("#addtoseo"); if(add) add.style.display = seo ? "none" : "";
   const wn=$("#winname");
-  if(wn) wn.textContent = seo ? "SEO leftovers" : (favsView ? "Watchlist" : "Brandables");
+  if(wn) wn.textContent = seo ? "SEO domains" : (favsView ? "Watchlist" : "Brandables");
   if(seo){
     if(["score","letters","drop_ms","words"].indexOf(sortKey)>=0){ sortKey="verdictRank"; sortDir=1; }
   } else {
-    if(["buyScore","rank","referring_main_domains","spam_score","etv","checkedAt","nameScore","verdictRank"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
+    if(["buyScore","seoScore","rank","referring_main_domains","spam_score","etv","organic_count","checkedAt","nameScore","verdictRank"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
   }
   setTableHead();
   const dropEl=$("#dropstate");
@@ -1139,14 +1171,17 @@ function rowHtml(r, now){
     const brand = (r.nameScore != null && r.nameScore !== "")
       ? Number(r.nameScore).toFixed(2) : '<span class="muted">—</span>';
     const vTip = r.verdictReason || COL_TIPS.verdict;
+    const seo = checked ? Number(r.seoScore||0).toFixed(2) : '<span class="muted">—</span>';
     return '<tr'+(r.notInList?' class="notinlist"':'')+'>'+
       sel+dom+
       '<td data-tip="'+vTip+'">'+verdictHtml(r)+'</td>'+
+      '<td class="num" data-tip="'+COL_TIPS.seo+'">'+seo+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.brand+'">'+brand+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.rank+'">'+(checked?fmtNum(r.rank):'<span class="muted">—</span>')+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.ref+'">'+(checked?fmtNum(r.referring_main_domains):'<span class="muted">—</span>')+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.spam+'">'+fmtSpam(r)+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.etv+'">'+(checked?fmtNum(r.etv):'<span class="muted">—</span>')+'</td>'+
+      '<td class="num" data-tip="'+COL_TIPS.kw+'">'+(checked?fmtNum(r.organic_count):'<span class="muted">—</span>')+'</td>'+
       '<td class="when" data-tip="'+COL_TIPS.checked+'">'+fmtChecked(r.checkedAt)+'</td>'+
       '</tr>';
   }
@@ -1195,12 +1230,12 @@ function render(){
   const wrap = $("#tablewrap");
   const showDrop = view==="list" && !allRows.length && !($("#proc") && $("#proc").style.display!=="none");
   if(view==="seo"){
-    $("#count").innerHTML = viewRows.length.toLocaleString()+" <small>seo leftovers</small>";
+    $("#count").innerHTML = viewRows.length.toLocaleString()+" <small>seo domains</small>";
     const nChk = seoRows.filter(r=>r.checkedAt).length;
     $("#splitline").innerHTML = "<b>"+nChk.toLocaleString()+"</b> checked · <b>"+(seoRows.length-nChk).toLocaleString()+"</b> pending";
     if(empty){
       empty.style.display = viewRows.length? "none":"block";
-      empty.textContent = "Paste leftovers or add selected names from Brandables. Check SEO stays off until DataForSEO is configured.";
+      empty.textContent = "Paste SEO domains or add selected names from Brandables. Check SEO stays off until DataForSEO is configured.";
     }
     if(wrap) wrap.style.display = "";
   } else if(view==="favs"){
@@ -1209,7 +1244,7 @@ function render(){
     $("#splitline").innerHTML = "<b>"+co.toLocaleString()+"</b> .co.uk · <b>"+(viewRows.length-co).toLocaleString()+"</b> .uk";
     if(empty){
       empty.style.display = viewRows.length? "none":"block";
-      empty.textContent = "Star names from Brandables or SEO leftovers to build a buy list.";
+      empty.textContent = "Star names from Brandables or SEO domains to build a buy list.";
     }
     if(wrap) wrap.style.display = "";
   } else {
@@ -1285,7 +1320,7 @@ $("#resetseen").addEventListener("click", (e)=>{
 
 function downloadCsv(rows, tag){
   if(!rows.length) return;
-  const csv = (view==="seo" || tag==="seo-leftovers") ? DropCore.toSeoCsv(rows) : DropCore.toCsv(rows);
+  const csv = (view==="seo" || tag==="seo-domains") ? DropCore.toSeoCsv(rows) : DropCore.toCsv(rows);
   const blob = new Blob([csv], {type:"text/csv"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -1293,7 +1328,7 @@ function downloadCsv(rows, tag){
   a.href=url; a.download=(tag||"brandables")+"-"+d+".csv"; a.click();
   URL.revokeObjectURL(url);
 }
-$("#download").addEventListener("click", ()=> downloadCsv(currentRows(), view==="seo"?"seo-leftovers":(view==="favs"?"watchlist":"brandables")));
+$("#download").addEventListener("click", ()=> downloadCsv(currentRows(), view==="seo"?"seo-domains":(view==="favs"?"watchlist":"brandables")));
 $("#exportsel").addEventListener("click", ()=>{
   const rows = view==="seo" ? seoRows.filter(r=>selected.has(r.domain)) : allRows.filter(r=>selected.has(r.domain));
   downloadCsv(rows, view==="seo"?"seo-selected":"selected");
@@ -1337,7 +1372,7 @@ $("#tbody").addEventListener("change", e=>{
 $("#addtoseo").addEventListener("click", ()=>{
   const names = [...selected];
   const n = addSeoDomains(names);
-  toast(n ? n+" added" : "Already on SEO leftovers");
+  toast(n ? n+" added" : "Already on SEO domains");
   updateSeoCount();
 });
 $("#seoadd").addEventListener("click", ()=>{
@@ -1369,7 +1404,7 @@ async function checkSeo({ force=false, onlySelected=false } = {}){
   let targets = onlySelected ? seoRows.filter(r=>selected.has(r.domain)).map(r=>r.domain) : seoRows.map(r=>r.domain);
   if(!force) targets = targets.filter(d=>{
     const row = seoRows.find(r=>r.domain===d);
-    return !row || !row.checkedAt;
+    return !row || !row.checkedAt || row.organic_count == null || row.organic_count === "";
   });
   if(!targets.length){
     setSeoStatus(force ? "Select names to recheck." : "Nothing new to fetch — already checked names are skipped.");
@@ -1390,6 +1425,7 @@ async function checkSeo({ force=false, onlySelected=false } = {}){
     mergeSeoItems(data.items||[]);
     sortKey="verdictRank"; sortDir=1;
     setSeoStatus("checked "+(data.items||[]).length+", skipped "+(data.cached||0)+" cached, fetched "+(data.fetched||0)
+      +(data.traffic?(", traffic "+data.traffic):"")
       +(data.cost?(" · $"+data.cost):""));
     render();
   }catch(err){
@@ -1439,7 +1475,9 @@ $("#seohunt").addEventListener("click", async ()=>{
       extras[it.domain] = {
         referring_domains: it.referring_domains,
         referring_main_domains: it.referring_main_domains,
+        referring_main_domains_nofollow: it.referring_main_domains_nofollow,
         etv: it.etv,
+        organic_count: it.organic_count,
         expiration_datetime: it.expiration_datetime,
         nameScore: 0
       };
@@ -1447,7 +1485,7 @@ $("#seohunt").addEventListener("click", async ()=>{
     const n = addSeoDomains((data.items||[]).map(it=>it.domain), extras);
     view="seo";
     document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active", x.getAttribute("data-view")==="seo"));
-    setSeoStatus("Found "+(data.items||[]).length+", added "+n+" to SEO leftovers. Check SEO to fill rank/spam."
+    setSeoStatus("Found "+(data.items||[]).length+", added "+n+" to SEO domains. Check SEO to fill rank/spam."
       +(data.cost?(" · $"+data.cost):""));
     render();
   }catch(err){
