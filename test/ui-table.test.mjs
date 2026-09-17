@@ -29,7 +29,7 @@ test("SEO domain rows attach explainers to each metric cell", () => {
   assert.match(html, /data-tip="'\+COL_TIPS\.ref\+'/);
   assert.match(html, /data-tip="'\+COL_TIPS\.spam\+'/);
   assert.match(html, /data-tip="'\+COL_TIPS\.etv\+'/);
-  assert.match(html, /data-tip="'\+COL_TIPS\.kw\+'/);
+  assert.match(html, /data-tip="'\+kwCellTip\(r\)\+'/);
   assert.match(html, /data-tip="'\+COL_TIPS\.checked\+'/);
   assert.match(html, /function verdictHtml/);
   assert.match(html, /function fmtSpam/);
@@ -50,7 +50,11 @@ test("Spam hover explains 0-100 bands and that 50 is medium", () => {
 
 test("ETV and KW hovers describe UK traffic and monthly searches", () => {
   assert.match(html, /ETV: estimated UK organic clicks/);
-  assert.match(html, /KW: UK monthly searches for this name as a keyword/);
+  assert.match(html, /hyphens become spaces/);
+  assert.match(html, /Google Ads exact UK volume/);
+  assert.match(html, /Keyword Planner’s grouped estimate/);
+  assert.match(html, /UK monthly searches for/);
+  assert.match(html, /function kwCellTip/);
   assert.match(html, /prep-schools\.co\.uk/);
   assert.doesNotMatch(html, /still ranks for/);
   assert.doesNotMatch(html, /Check SEO does not fill this yet/);

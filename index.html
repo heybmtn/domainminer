@@ -1021,7 +1021,7 @@ const COL_TIPS = {
   spam: "Spam is 0-100 from DataForSEO. Higher is worse. 0-30 low, 31-60 medium, 61-100 high. 50 is medium.",
   verdict: "Buy, Caution, or Skip from spam, Rank/Ref, UK traffic, and monthly searches for the name. 50 spam with links is Caution. Unchecked stays —.",
   etv: "ETV: estimated UK organic clicks from DataForSEO Labs. Filled by Check SEO.",
-  kw: "KW: UK monthly searches for this name as a keyword (prep-schools.co.uk → “prep schools”).",
+  kw: "KW: hyphens become spaces (prep-schools.co.uk → “prep schools”). Google Ads exact UK volume, not Keyword Planner’s grouped estimate.",
   checked: "When Rank, Ref, Spam, ETV, and KW were last fetched. Cached names are not billed again."
 };
 const LIST_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-words"><col class="col-num"><col class="col-ttd"><col class="col-brand"><col class="col-tags">';
@@ -1151,6 +1151,12 @@ function applyViewChrome(){
 }
 
 function fmtNum(v){ return (v===""||v==null||v===undefined) ? '<span class="muted">—</span>' : v; }
+function kwCellTip(r){
+  if(!r || !r.checkedAt) return COL_TIPS.kw;
+  const phrase = r.keyword || DropCore.keywordFromDomain(r.domain);
+  if(!phrase) return COL_TIPS.kw;
+  return "UK monthly searches for “"+String(phrase).replace(/"/g,"")+"”";
+}
 function fmtSpam(r){
   if(!r.checkedAt) return '<span class="muted">—</span>';
   const n = (r.spam_score===""||r.spam_score==null) ? "—" : r.spam_score;
@@ -1198,7 +1204,7 @@ function rowHtml(r, now){
       '<td class="num" data-tip="'+COL_TIPS.ref+'">'+(checked?fmtNum(r.referring_main_domains):'<span class="muted">—</span>')+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.spam+'">'+fmtSpam(r)+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.etv+'">'+(checked?fmtNum(r.etv):'<span class="muted">—</span>')+'</td>'+
-      '<td class="num" data-tip="'+COL_TIPS.kw+'">'+(checked?fmtNum(r.search_volume):'<span class="muted">—</span>')+'</td>'+
+      '<td class="num" data-tip="'+kwCellTip(r)+'">'+(checked?fmtNum(r.search_volume):'<span class="muted">—</span>')+'</td>'+
       '<td class="when" data-tip="'+COL_TIPS.checked+'">'+fmtChecked(r.checkedAt)+'</td>'+
       '</tr>';
   }
