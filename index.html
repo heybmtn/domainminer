@@ -94,12 +94,14 @@
   .sb-actions{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap}
 
   .tablewrap{overflow-y:auto; overflow-x:auto; max-height:calc(100vh - 220px)}
-  table{table-layout:fixed; border-collapse:collapse; width:100%; font-size:13px; min-width:860px}
+  table{table-layout:fixed; border-collapse:collapse; width:100%; font-size:13px; min-width:980px}
   col.col-sel{width:40px}
   col.col-domain{width:auto}
   col.col-words{width:16%}
   col.col-num{width:6.6rem}
   col.col-brand{width:8.8rem}
+  col.col-spam{width:7.6rem}
+  col.col-verdict{width:7.4rem}
   col.col-ttd{width:8.2rem}
   col.col-tags{width:10.5rem}
   col.col-when{width:9.2rem}
@@ -122,6 +124,11 @@
   .copybtn:hover{background:var(--ink100)}
   .copybtn.ok{background:var(--ink); color:#fff; border-color:var(--ink)}
   td.num{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--ink700)}
+  td.num .band{font-family:var(--grotesk); font-weight:700; font-size:10px; letter-spacing:.08em; text-transform:uppercase; margin-left:4px}
+  .verdict{font-family:var(--grotesk); font-weight:700; font-size:11px; letter-spacing:.08em; text-transform:uppercase}
+  .verdict.buy{color:var(--ink)}
+  .verdict.caution{color:var(--ink); text-decoration:underline; text-underline-offset:2px}
+  .verdict.skip,.verdict.pending{color:var(--ink500)}
   .tag{display:inline-block; font-family:var(--grotesk); font-size:10px; letter-spacing:.08em; text-transform:uppercase; font-weight:700;
        color:var(--ink); background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:1px 8px; margin-right:6px}
   .when{font-family:var(--mono); color:var(--ink500)}
@@ -583,6 +590,7 @@
   }
 
   function round2(n) { return Math.round(n * 100) / 100; }
+  var MIN_REF_LINKS = 5, MIN_RANK_LINKS = 40;
 
   function seoScore(m) {
     m = m || {};
@@ -594,10 +602,53 @@
     return round2(seoScore(m) + (Number(m && m.nameScore) || 0));
   }
 
+  function spamBand(spam_score) {
+    var n = Number(spam_score);
+    if (!isFinite(n)) return { key: "", label: "" };
+    if (n >= 61) return { key: "high", label: "high" };
+    if (n >= 31) return { key: "med", label: "med" };
+    return { key: "low", label: "low" };
+  }
+
+  function hasMeaningfulLinks(m) {
+    m = m || {};
+    return (Number(m.referring_main_domains) || 0) >= MIN_REF_LINKS
+      || (Number(m.rank) || 0) >= MIN_RANK_LINKS;
+  }
+
+  function buyVerdict(row) {
+    row = row || {};
+    if (!row.checkedAt) {
+      return { verdict: "", verdictRank: 3, spam_band: "", reason: "Check SEO first." };
+    }
+    var spam = Number(row.spam_score) || 0;
+    var band = spamBand(spam);
+    var links = hasMeaningfulLinks(row);
+    if (spam >= 61) {
+      return { verdict: "skip", verdictRank: 2, spam_band: band.key,
+        reason: "High spam (61-100). Skip — toxic leftover, do not register." };
+    }
+    if (!links) {
+      return { verdict: "skip", verdictRank: 2, spam_band: band.key,
+        reason: "No meaningful Rank or Ref. Skip — nothing to buy for SEO." };
+    }
+    if (spam >= 31) {
+      return { verdict: "caution", verdictRank: 1, spam_band: band.key,
+        reason: "Medium spam (31-60). Caution — inspect links before you register." };
+    }
+    return { verdict: "buy", verdictRank: 0, spam_band: band.key,
+      reason: "Low spam (0-30) with Rank or Ref. Buy for leftover SEO." };
+  }
+
   function withScores(row) {
     var seo = seoScore(row);
+    var hint = buyVerdict(row);
     row.seoScore = seo;
     row.buyScore = round2(seo + (Number(row.nameScore) || 0));
+    row.spam_band = hint.spam_band;
+    row.verdict = hint.verdict;
+    row.verdictRank = hint.verdictRank;
+    row.verdictReason = hint.reason;
     return row;
   }
 
@@ -630,17 +681,17 @@
   }
 
   function toSeoCsv(rows) {
-    var head = "domain,rank,referring_domains,referring_main_domains,spam_score,etv,nameScore,seoScore,buyScore,checkedAt";
+    var head = "domain,rank,referring_domains,referring_main_domains,spam_score,spam_band,etv,nameScore,seoScore,buyScore,verdict,checkedAt";
     var body = rows.map(function (r) {
-      return [r.domain, r.rank, r.referring_domains, r.referring_main_domains, r.spam_score, r.etv,
-        r.nameScore, r.seoScore, r.buyScore, r.checkedAt].map(csvCell).join(",");
+      return [r.domain, r.rank, r.referring_domains, r.referring_main_domains, r.spam_score, r.spam_band, r.etv,
+        r.nameScore, r.seoScore, r.buyScore, r.verdict, r.checkedAt].map(csvCell).join(",");
     });
     return head + "\n" + body.join("\n") + "\n";
   }
 
   var api = { buildVocab: buildVocab, segment: segment, tokenise: tokenise, makeCandidate: makeCandidate,
               processCsv: processCsv, applyFilters: applyFilters, toCsv: toCsv, toSeoCsv: toSeoCsv,
-              seoScore: seoScore, buyScore: buyScore, withScores: withScores,
+              seoScore: seoScore, buyScore: buyScore, spamBand: spamBand, buyVerdict: buyVerdict, withScores: withScores,
               normalizeDomain: normalizeDomain, parseDomainList: parseDomainList,
               STOPWORDS: STOPWORDS, COMMERCIAL: COMMERCIAL, AMERICAN: AMERICAN };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -872,8 +923,12 @@ function sortArr(arr){
     let x=a[k], y=b[k];
     if(x===""||x==null) x = typeof y==="string" ? "" : 0;
     if(y===""||y==null) y = typeof x==="string" ? "" : 0;
-    if(typeof x==="string" || typeof y==="string"){ return d*String(x).localeCompare(String(y)); }
-    return d*((Number(x)||0)-(Number(y)||0));
+    let cmp;
+    if(typeof x==="string" || typeof y==="string") cmp = d*String(x).localeCompare(String(y));
+    else cmp = d*((Number(x)||0)-(Number(y)||0));
+    if(cmp!==0) return cmp;
+    if(k==="verdictRank") return ((Number(b.nameScore)||0)-(Number(a.nameScore)||0));
+    return 0;
   });
 }
 function sortFiltered(){ sortArr(filtered); }
@@ -917,12 +972,13 @@ const COL_TIPS = {
   tags: "commercial = buyer/service word; hyphen = hyphenated; invented = short pronounceable non-word.",
   rank: "Rank: DataForSEO backlink rank. Higher means a stronger link profile.",
   ref: "Ref: referring main domains — how many unique websites link to this name.",
-  spam: "Spam: DataForSEO spam score. Higher is riskier.",
+  spam: "Spam is 0-100 from DataForSEO. Higher is worse. 0-30 low, 31-60 medium, 61-100 high. 50 is medium.",
+  verdict: "Buy, Caution, or Skip from spam plus Rank and Ref. 50 spam with links is Caution, not a clear register.",
   etv: "ETV: estimated traffic value. Check SEO does not fill this yet.",
   checked: "When Rank, Ref, and Spam were last fetched. Cached names are not billed again."
 };
 const LIST_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-words"><col class="col-num"><col class="col-ttd"><col class="col-brand"><col class="col-tags">';
-const SEO_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-brand"><col class="col-num"><col class="col-num"><col class="col-num"><col class="col-num"><col class="col-when">';
+const SEO_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-verdict"><col class="col-brand"><col class="col-num"><col class="col-num"><col class="col-spam"><col class="col-num"><col class="col-when">';
 const LIST_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
   '<th data-k="domain" data-tip="'+COL_TIPS.domainList+'">Domain <span class="ar"></span></th>'+
@@ -935,6 +991,7 @@ const LIST_HEAD = '<tr>'+
 const SEO_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
   '<th data-k="domain" data-tip="'+COL_TIPS.domainSeo+'">Domain <span class="ar"></span></th>'+
+  '<th data-k="verdictRank" data-tip="'+COL_TIPS.verdict+'">Verdict <span class="ar"></span></th>'+
   '<th data-k="nameScore" class="num" data-tip="'+COL_TIPS.brand+'">Brand score <span class="ar"></span></th>'+
   '<th data-k="rank" class="num" data-tip="'+COL_TIPS.rank+'">Rank <span class="ar"></span></th>'+
   '<th data-k="referring_main_domains" class="num" data-tip="'+COL_TIPS.ref+'">Ref <span class="ar"></span></th>'+
@@ -963,7 +1020,7 @@ function bindHeadSort(){
       if(sortKey===k) sortDir=-sortDir;
       else {
         sortKey=k;
-        sortDir = (k==="domain"||k==="words"||k==="drop_time"||k==="drop_ms"||k==="checkedAt")?1:-1;
+        sortDir = (k==="domain"||k==="words"||k==="drop_time"||k==="drop_ms"||k==="checkedAt"||k==="verdictRank")?1:-1;
       }
       if(view==="list") sortFiltered();
       render();
@@ -1010,7 +1067,7 @@ function setTableHead(){
   const thead = table && table.querySelector("thead");
   if(!table || !thead) return;
   const seo = view==="seo";
-  COLS = seo ? 8 : 7;
+  COLS = seo ? 9 : 7;
   let cg = table.querySelector("colgroup");
   if(!cg){ cg = document.createElement("colgroup"); table.insertBefore(cg, thead); }
   if(lastHeadView !== view){
@@ -1034,9 +1091,9 @@ function applyViewChrome(){
   const wn=$("#winname");
   if(wn) wn.textContent = seo ? "SEO leftovers" : (favsView ? "Watchlist" : "Brandables");
   if(seo){
-    if(["score","letters","drop_ms","words"].indexOf(sortKey)>=0){ sortKey="nameScore"; sortDir=-1; }
+    if(["score","letters","drop_ms","words"].indexOf(sortKey)>=0){ sortKey="verdictRank"; sortDir=1; }
   } else {
-    if(["buyScore","rank","referring_main_domains","spam_score","etv","checkedAt","nameScore"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
+    if(["buyScore","rank","referring_main_domains","spam_score","etv","checkedAt","nameScore","verdictRank"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
   }
   setTableHead();
   const dropEl=$("#dropstate");
@@ -1045,6 +1102,18 @@ function applyViewChrome(){
 }
 
 function fmtNum(v){ return (v===""||v==null||v===undefined) ? '<span class="muted">—</span>' : v; }
+function fmtSpam(r){
+  if(!r.checkedAt) return '<span class="muted">—</span>';
+  const n = (r.spam_score===""||r.spam_score==null) ? "—" : r.spam_score;
+  const band = r.spam_band || (DropCore.spamBand(r.spam_score).label);
+  if(!band) return fmtNum(n);
+  return fmtNum(n)+' <span class="band muted">· '+band+'</span>';
+}
+function verdictHtml(r){
+  if(!r.checkedAt || !r.verdict) return '<span class="verdict pending">—</span>';
+  const label = r.verdict==="buy" ? "Buy" : (r.verdict==="caution" ? "Caution" : "Skip");
+  return '<span class="verdict '+r.verdict+'">'+label+'</span>';
+}
 function fmtChecked(iso){
   if(!iso) return '<span class="muted">not yet</span>';
   const d = new Date(iso); if(isNaN(d)) return iso;
@@ -1069,12 +1138,14 @@ function rowHtml(r, now){
     const checked = !!r.checkedAt;
     const brand = (r.nameScore != null && r.nameScore !== "")
       ? Number(r.nameScore).toFixed(2) : '<span class="muted">—</span>';
+    const vTip = r.verdictReason || COL_TIPS.verdict;
     return '<tr'+(r.notInList?' class="notinlist"':'')+'>'+
       sel+dom+
+      '<td data-tip="'+vTip+'">'+verdictHtml(r)+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.brand+'">'+brand+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.rank+'">'+(checked?fmtNum(r.rank):'<span class="muted">—</span>')+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.ref+'">'+(checked?fmtNum(r.referring_main_domains):'<span class="muted">—</span>')+'</td>'+
-      '<td class="num" data-tip="'+COL_TIPS.spam+'">'+(checked?fmtNum(r.spam_score):'<span class="muted">—</span>')+'</td>'+
+      '<td class="num" data-tip="'+COL_TIPS.spam+'">'+fmtSpam(r)+'</td>'+
       '<td class="num" data-tip="'+COL_TIPS.etv+'">'+(checked?fmtNum(r.etv):'<span class="muted">—</span>')+'</td>'+
       '<td class="when" data-tip="'+COL_TIPS.checked+'">'+fmtChecked(r.checkedAt)+'</td>'+
       '</tr>';
@@ -1317,7 +1388,7 @@ async function checkSeo({ force=false, onlySelected=false } = {}){
     const data = await res.json().catch(()=>({}));
     if(!res.ok) throw new Error(data.error || ("HTTP "+res.status));
     mergeSeoItems(data.items||[]);
-    sortKey="nameScore"; sortDir=-1;
+    sortKey="verdictRank"; sortDir=1;
     setSeoStatus("checked "+(data.items||[]).length+", skipped "+(data.cached||0)+" cached, fetched "+(data.fetched||0)
       +(data.cost?(" · $"+data.cost):""));
     render();
