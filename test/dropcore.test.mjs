@@ -72,3 +72,31 @@ test("keywordFromDomain splits glued dictionary words when vocab is set", () => 
   assert.equal(DropCore.keywordFromDomain("prep-schools.co.uk"), "prep schools");
   assert.equal(DropCore.keywordFromDomain("lumo.uk"), "lumo");
 });
+
+test("buildVocab splits a WORDS string into dictionary entries", () => {
+  const vocab = DropCore.buildVocab("home bright insurance");
+  assert.equal(vocab.size, 3);
+  assert.equal(vocab.get("home"), 0);
+  assert.equal(vocab.get("h"), undefined);
+});
+
+test("production WORDS vocab treats home.co.uk as a dictionary name", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const m = html.match(/const WORDS = "([^"]+)"/);
+  assert.ok(m, "index.html WORDS missing");
+  const vocab = DropCore.buildVocab(m[1]);
+  assert.ok(vocab.size > 100);
+  const home = DropCore.makeCandidate("home.co.uk", "", vocab, vocab.size, 3);
+  assert.equal(home.words, "home");
+  assert.equal(home.invented, false);
+  assert.equal(home.isWords, true);
+});
+
+test("fmtDur shows minutes and seconds under one hour", () => {
+  assert.equal(DropCore.fmtDur(3 * 864e5 + 5 * 36e5), "3d 5h");
+  assert.equal(DropCore.fmtDur(5 * 36e5 + 12 * 6e4), "5h 12m");
+  assert.equal(DropCore.fmtDur(12 * 6e4 + 4 * 1000), "12m 04s");
+  assert.equal(DropCore.fmtDur(18 * 1000), "18s");
+  assert.equal(DropCore.fmtDur(0), "dropped");
+  assert.equal(DropCore.fmtDur(-1000), "dropped");
+});
