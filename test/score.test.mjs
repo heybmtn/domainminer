@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  brandBand,
   buyScore,
   buyVerdict,
   dofollowMain,
+  seoBand,
   seoScore,
   spamBand,
   withScores,
@@ -116,4 +118,23 @@ test("unchecked rows stay pending", () => {
   assert.equal(hint.verdict, "");
   assert.equal(hint.verdictRank, 3);
   assert.equal(withScores({ spam_score: 50 }).verdict, "");
+});
+
+test("brandBand maps invented ~3.6 to OK and dictionary 8+ to Strong", () => {
+  assert.equal(brandBand(3.6).label, "OK");
+  assert.equal(brandBand(3.6).key, "ok");
+  assert.equal(brandBand(3.5).label, "OK");
+  assert.equal(brandBand(3.49).label, "Weak");
+  assert.equal(brandBand(8).label, "Strong");
+  assert.equal(brandBand(7).label, "Strong");
+  assert.equal(brandBand(8.4).key, "strong");
+});
+
+test("seoBand maps 10 Strong, 2 OK, and -4 Weak", () => {
+  assert.equal(seoBand(10).label, "Strong");
+  assert.equal(seoBand(5).label, "Strong");
+  assert.equal(seoBand(2).label, "OK");
+  assert.equal(seoBand(0).label, "OK");
+  assert.equal(seoBand(-4).label, "Weak");
+  assert.equal(seoBand(-0.01).key, "weak");
 });
