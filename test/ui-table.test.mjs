@@ -41,6 +41,14 @@ test("SEO domain rows attach explainers to each metric cell", () => {
   assert.match(html, /function fmtSpam/);
 });
 
+test("SEO domain rows show a domain-age column from Find expiring's WHOIS data", () => {
+  const head = grab("SEO_HEAD");
+  assert.match(head, /data-k="registrationAgeDays" class="num" data-tip="[^"]+">Age/);
+  assert.match(html, /data-tip="'\+ageTip\(r\)\+'">'\+fmtAge\(r\)/);
+  assert.match(html, /function fmtAge/);
+  assert.match(html, /function ageTip/);
+});
+
 test("fixed layout gives Brand score and SEO score their own column widths", () => {
   assert.match(html, /table\{table-layout:fixed/);
   assert.match(html, /col\.col-brand\{width:8\.8rem\}/);

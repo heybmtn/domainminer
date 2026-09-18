@@ -1,5 +1,5 @@
 import { enrichDomains } from "../../../lib/enrich.mjs";
-import { fail, getCache, getClient, json, readJson } from "../../_lib.js";
+import { fail, getBudgetCap, getCache, getClient, json, readJson } from "../../_lib.js";
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -9,6 +9,7 @@ export async function onRequestPost({ request, env }) {
       cache: getCache(env),
       client: getClient(env),
       nameScores: body.nameScores && typeof body.nameScores === "object" ? body.nameScores : {},
+      budgetCapUSD: getBudgetCap(env),
     });
     return json(result);
   } catch (err) {

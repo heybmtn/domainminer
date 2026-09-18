@@ -7,6 +7,7 @@ import { createCache } from "./lib/cache.mjs";
 import { createDataForSeoClient } from "./lib/dataforseo.mjs";
 import { enrichDomains, findExpiring } from "./lib/enrich.mjs";
 import { fetchDroplist } from "./lib/nominet.mjs";
+import { getSpend, parseBudgetCap } from "./lib/spend.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -75,6 +76,10 @@ function getClient() {
   return createDataForSeoClient({ login, password });
 }
 
+function getBudgetCap() {
+  return parseBudgetCap(process.env.DATAFORSEO_MONTHLY_BUDGET);
+}
+
 export function createServer({ cachePath } = {}) {
   const cache = createCache(cachePath || path.join(ROOT, "data", "seo-cache.json"));
 
@@ -90,10 +95,12 @@ export function createServer({ cachePath } = {}) {
       }
 
       if (req.method === "GET" && url.pathname === "/api/health") {
+        const spend = await getSpend({ cache });
         json(res, 200, {
           ok: true,
           configured: Boolean(process.env.DATAFORSEO_LOGIN && process.env.DATAFORSEO_PASSWORD),
           cacheSize: await cache.size(),
+          spend: { ...spend, capUSD: getBudgetCap() },
         });
         return;
       }
@@ -105,6 +112,7 @@ export function createServer({ cachePath } = {}) {
           cache,
           client: getClient(),
           nameScores: body.nameScores && typeof body.nameScores === "object" ? body.nameScores : {},
+          budgetCapUSD: getBudgetCap(),
         });
         json(res, 200, result);
         return;
@@ -126,7 +134,7 @@ export function createServer({ cachePath } = {}) {
           minRefDomains: body.minRefDomains,
           minOrganic: body.minOrganic,
           limit: body.limit,
-        }, { client: getClient() });
+        }, { client: getClient(), cache, budgetCapUSD: getBudgetCap() });
         json(res, 200, result);
         return;
       }
