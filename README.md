@@ -18,7 +18,9 @@ Nominet filtering works without an API key. **Check SEO** and **Find expiring** 
 
 ### Jev (TypeSafe AI) — optional
 
-Everything above works without this. Add `JEV_API_KEY` (and optionally `JEV_MODEL`, `JEV_MONTHLY_BUDGET`, capped independently of the DataForSEO budget) to enable Jev-backed judgments — plain HTTP calls to `https://api.typesafe.ai/v1/systemone`, no plugin/skill installed. Every judgment is cached forever (stable for a given input) through the same cache as SEO metrics. Configuration and this-month spend show in `/api/health` and next to the DataForSEO spend line in the UI. As of this PR, `lib/jev.mjs` and `POST /api/jev/ask` are plumbing only — no feature in the app calls them yet.
+Everything above works without this. Add `JEV_API_KEY` (and optionally `JEV_MODEL`, `JEV_MONTHLY_BUDGET`, capped independently of the DataForSEO budget) to enable Jev-backed judgments — plain HTTP calls to `https://api.typesafe.ai/v1/systemone`, no plugin/skill installed. Every judgment is cached forever (stable for a given input) through the same cache as SEO metrics. Configuration and this-month spend show in `/api/health` and next to the DataForSEO spend line in the UI.
+
+**Jev shortlist** (Brandables view, needs `JEV_API_KEY`): scores every currently loaded Nominet name for brandability in one batched pass, before any DataForSEO spend. Set a shortlist size, click **Run Jev shortlist**, then tick **Jev shortlist only** to narrow the list to the top scorers (on top of whatever other filters are active) — so DataForSEO credits only get spent checking names Jev already rates highly. When Jev has scored a name, its judgment drives the displayed **Brand score** badge (Weak/OK/Strong) instead of the built-in dictionary/invented-word heuristic; the heuristic remains the fallback for unscored names and for everything when `JEV_API_KEY` is unset.
 
 ## Hunts
 

@@ -289,6 +289,17 @@
               </div>
               <div class="hint" style="margin-top:8px"><a href="#" id="resetseen">Reset tracking</a></div>
             </div>
+
+            <div class="fld">
+              <label class="t">Jev shortlist</label>
+              <div class="row">
+                <input type="number" id="jevshortlistsize" min="10" max="5000" value="200">
+                <button class="btn ghost" id="jevshortlistrun" type="button" disabled title="Needs JEV_API_KEY configured">Run Jev shortlist</button>
+              </div>
+              <div class="hint">Scores brandability for every loaded name with Jev, so DataForSEO credits only get spent on the top-scoring names. Also becomes the Brand score when Jev is configured.</div>
+              <label class="chk" style="margin-top:8px"><input type="checkbox" id="jevshortlistonly" disabled> Jev shortlist only</label>
+              <div class="hint" id="jevshortliststatus"></div>
+            </div>
             </div><!-- /filtergrid -->
 
             <div class="filteractions">
@@ -914,6 +925,8 @@ async function loadHealth(){
     const jevEl = $("#jevspend");
     if(jevConfigured) updateJevSpendDisplay(data.jev.spend);
     else if(jevEl) jevEl.textContent = "Jev: not configured";
+    const jevBtn = $("#jevshortlistrun");
+    if(jevBtn) jevBtn.disabled = !jevConfigured;
   }catch(e){
     seoConfigured = false;
   }
@@ -1034,8 +1047,13 @@ function readFilters(){
   };
 }
 
+let jevShortlist = null;
 function applyAndRender(){
-  filtered = DropCore.applyFilters(allRows, readFilters());
+  let rows = DropCore.applyFilters(allRows, readFilters());
+  if(jevShortlist && $("#jevshortlistonly") && $("#jevshortlistonly").checked){
+    rows = rows.filter(r=>jevShortlist.has(r.domain));
+  }
+  filtered = rows;
   sortFiltered();
   render();
 }
@@ -1288,6 +1306,22 @@ function scoreBandTip(kind, score){
   const num = isFinite(n) ? n.toFixed(2) : "";
   return band.label+" ("+num+"). "+explainer;
 }
+const JEV_BAND_LABEL = { weak:"Weak", ok:"OK", strong:"Strong" };
+function brandBandFor(r){
+  if(r.jevBrand && r.jevBrand.band){
+    return { key: r.jevBrand.band, label: JEV_BAND_LABEL[r.jevBrand.band] || r.jevBrand.band };
+  }
+  return DropCore.brandBand(r.score);
+}
+function brandTipFor(r){
+  if(r.jevBrand && r.jevBrand.band){
+    const label = JEV_BAND_LABEL[r.jevBrand.band] || r.jevBrand.band;
+    const scoreNum = r.jevBrand.score!=null ? r.jevBrand.score.toFixed(2) : "?";
+    const conf = r.jevBrand.confidence!=null ? " Confidence "+(r.jevBrand.confidence*100).toFixed(0)+"%." : "";
+    return "Jev brandability: "+label+" (score "+scoreNum+"/2)."+conf;
+  }
+  return scoreBandTip("brand", r.score);
+}
 function fmtChecked(iso){
   if(!iso) return '<span class="muted">not yet</span>';
   const d = new Date(iso); if(isNaN(d)) return iso;
@@ -1351,11 +1385,11 @@ function rowHtml(r, now){
   if(view==="favs"){
     const checked = !!r.checkedAt;
     const hasBrand = r.score != null && r.score !== "";
-    const brand = hasBrand ? scoreBandHtml(DropCore.brandBand(r.score)) : '<span class="muted">—</span>';
+    const brand = hasBrand ? scoreBandHtml(brandBandFor(r)) : '<span class="muted">—</span>';
     const vTip = r.verdictReason || COL_TIPS.verdict;
     const seo = checked ? scoreBandHtml(DropCore.seoBand(r.seoScore)) : '<span class="muted">—</span>';
     const seoTip = checked ? scoreBandTip("seo", r.seoScore) : COL_TIPS.seo;
-    const brandTip = hasBrand ? scoreBandTip("brand", r.score) : COL_TIPS.brand;
+    const brandTip = hasBrand ? brandTipFor(r) : COL_TIPS.brand;
     return '<tr'+(r.notInList?' class="notinlist"':'')+'>'+
       sel+dom+
       '<td class="wordscell" data-tip="'+COL_TIPS.words+'">'+words+'</td>'+
@@ -1372,7 +1406,7 @@ function rowHtml(r, now){
     '<td class="wordscell" data-tip="'+COL_TIPS.words+'">'+words+'</td>'+
     '<td class="num" data-tip="'+COL_TIPS.letters+'">'+(r.letters||'')+'</td>'+
     '<td data-tip="'+COL_TIPS.drop+'"><span class="'+ttdCls+'" data-drop-ms="'+(r.drop_ms||'')+'" title="'+(r.drop_time||'')+'">'+until+'</span></td>'+
-    '<td data-tip="'+scoreBandTip("brand", r.score)+'">'+scoreBandHtml(DropCore.brandBand(r.score))+'</td>'+
+    '<td data-tip="'+brandTipFor(r)+'">'+scoreBandHtml(brandBandFor(r))+'</td>'+
     '<td data-tip="'+COL_TIPS.tags+'">'+tagHtml(r)+'</td>'+
     '</tr>';
 }
@@ -1480,6 +1514,52 @@ function render(){
 
 window.__processText = processText;
 function runFilters(){ filtered=[]; window.__filteredOnce=false; applyAndRender(); }
+
+async function runJevShortlist(){
+  const statusEl = $("#jevshortliststatus");
+  if(!jevConfigured){
+    if(statusEl) statusEl.textContent = "Jev lookups need JEV_API_KEY configured.";
+    return;
+  }
+  if(!allRows.length){
+    if(statusEl) statusEl.textContent = "Load a Nominet list first.";
+    return;
+  }
+  const size = Math.max(1, +$("#jevshortlistsize").value || 200);
+  const rows = allRows.map(r=>({domain:r.domain, words:r.words, tld:r.tld}));
+  $("#jevshortlistrun").disabled = true;
+  if(statusEl) statusEl.textContent = "Scoring "+rows.length.toLocaleString()+" names with Jev… this can take a while.";
+  try{
+    const res = await fetch("/api/jev/shortlist", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ rows })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || ("HTTP "+res.status));
+    const scored = new Map();
+    let errors = 0;
+    (data.items||[]).forEach(it=>{
+      if(it.error){ errors++; return; }
+      scored.set(it.domain, it);
+      const row = favMap.get(it.domain);
+      if(row) row.jevBrand = it;
+    });
+    const ranked = [...scored.entries()].sort((a,b)=>(b[1].score||0)-(a[1].score||0));
+    jevShortlist = new Set(ranked.slice(0, size).map(([d])=>d));
+    $("#jevshortlistonly").disabled = false;
+    if(statusEl) statusEl.textContent = "Scored "+scored.size.toLocaleString()+" names"
+      +(errors?(", "+errors+" failed"):"")+". Shortlist: top "+jevShortlist.size.toLocaleString()+"."
+      +(data.cost?(" · $"+data.cost.toFixed(6)):"");
+    if(data.spendTotal!=null) updateJevSpendDisplay({ total: data.spendTotal });
+    runFilters();
+  }catch(err){
+    if(statusEl) statusEl.textContent = err.message || "Jev shortlist failed";
+  }finally{
+    $("#jevshortlistrun").disabled = !jevConfigured;
+  }
+}
+$("#jevshortlistrun").addEventListener("click", runJevShortlist);
+$("#jevshortlistonly").addEventListener("change", runFilters);
 let filterTimer = null;
 function scheduleFilters(){
   if(!applyingPreset) markPreset("");
