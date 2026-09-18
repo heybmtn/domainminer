@@ -18,7 +18,7 @@ Nominet filtering works without an API key. **Check SEO** and **Find expiring** 
 
 ## Hunts
 
-1. **Brandables** — load today’s Nominet `uk.csv.gz`. Presets (Clean brandable, Commercial, All names) apply immediately. Star a name to put it on the Watchlist; **Add to SEO** copies selected names onto the SEO domains list. Scoring here is **Brand score** only (dictionary / invented / `.co.uk` boost). No DataForSEO.
+1. **Brandables** — today’s Nominet `uk.csv.gz` auto-fetches on load (server-side, cached ~6h) from `droplists.nominet.uk`; **Fetch latest** forces a fresh pull, or use **Load Nominet list** to upload a file manually. Presets (Clean brandable, Commercial, All names) apply immediately. Star a name to put it on the Watchlist; **Add to SEO** copies selected names onto the SEO domains list. Scoring here is **Brand score** only (dictionary / invented / `.co.uk` boost). No DataForSEO.
 2. **SEO domains** — paste or copy a short list here so you do not spend API on the whole drop file. Check SEO only runs for this list. Already-checked names are skipped; rows missing UK traffic (`organic_count`) get a traffic-only backfill; rows missing KW (`search_volume`) get a volume-only backfill. Scoring here is **SEO score** plus **Verdict** (spam, dofollow Ref, Rank, UK ETV, UK monthly searches for the name). Brand score is shown only when we already know it from Nominet.
 3. **Watchlist** — the buy list. Stars from either hunt.
 
