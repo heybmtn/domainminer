@@ -169,7 +169,7 @@
   .seobar textarea:focus{outline:2px solid var(--ink); outline-offset:2px}
   .banner{padding:10px 12px; border:2px solid var(--ink900); background:var(--ink100); font-size:13px; margin-bottom:12px}
   #seostatus{font-family:var(--mono); font-size:12px; color:var(--ink700)}
-  #seostatus.err{color:var(--ink)}
+  #seostatus.err, #seospend.err{color:var(--ink)}
   .muted{color:var(--ink500)}
   .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:#fff;
          padding:10px 16px; font-family:var(--grotesk); font-weight:700; font-size:13px; z-index:40;
@@ -307,6 +307,7 @@
               <button class="btn" id="seoadd" type="button">Add</button>
               <button class="btn ghost" id="seocheck" type="button" disabled>Check SEO</button>
               <button class="btn ghost" id="seorecheck" type="button" disabled title="Overwrite cache and fetch again">Recheck selected</button>
+              <button class="btn ghost" id="seoverify" type="button" disabled title="Second-pass link-trend check for selected Buy names, before you register">Verify buy</button>
               <button class="btn ghost" id="seoremove" type="button">Remove selected</button>
               <button class="btn ghost" id="seoclear" type="button">Clear list</button>
             </div>
@@ -327,6 +328,7 @@
             <div class="filteractions" style="margin-top:0;border-top:none;padding-top:0">
               <button class="btn ghost" id="seohunt" type="button" disabled>Find expiring</button>
               <span class="hint" id="seostatus"></span>
+              <span class="hint" id="seospend"></span>
             </div>
           </div>
           <div class="statusbar">
@@ -761,10 +763,11 @@
   }
 
   function toSeoCsv(rows) {
-    var head = "domain,keyword,rank,referring_domains,referring_main_domains,referring_main_domains_nofollow,spam_score,spam_band,etv,organic_count,search_volume,nameScore,seoScore,buyScore,verdict,checkedAt";
+    var head = "domain,keyword,rank,referring_domains,referring_main_domains,referring_main_domains_nofollow,spam_score,spam_band,etv,organic_count,search_volume,nameScore,seoScore,buyScore,verdict,checkedAt,registrationAgeDays,registrar";
     var body = rows.map(function (r) {
       return [r.domain, r.keyword, r.rank, r.referring_domains, r.referring_main_domains, r.referring_main_domains_nofollow,
-        r.spam_score, r.spam_band, r.etv, r.organic_count, r.search_volume, r.nameScore, r.seoScore, r.buyScore, r.verdict, r.checkedAt].map(csvCell).join(",");
+        r.spam_score, r.spam_band, r.etv, r.organic_count, r.search_volume, r.nameScore, r.seoScore, r.buyScore, r.verdict, r.checkedAt,
+        r.registrationAgeDays, r.registrar].map(csvCell).join(",");
     });
     return head + "\n" + body.join("\n") + "\n";
   }
@@ -840,7 +843,10 @@ function blankSeoRow(d, extra){
     keyword: extra.keyword != null ? extra.keyword : DropCore.keywordFromDomain(d),
     search_volume: extra.search_volume != null ? extra.search_volume : "",
     checkedAt: extra.checkedAt || "",
-    expiration_datetime: extra.expiration_datetime || ""
+    expiration_datetime: extra.expiration_datetime || "",
+    created_datetime: extra.created_datetime || "",
+    registrar: extra.registrar || "",
+    registrationAgeDays: extra.registrationAgeDays != null ? extra.registrationAgeDays : null
   });
 }
 function addSeoDomains(names, extrasByDomain){
@@ -867,7 +873,7 @@ function toast(msg){
 let seoConfigured = false;
 function applySeoEnabled(){
   const msg = "SEO lookups need DataForSEO secrets in Cloudflare Pages.";
-  ["#seocheck","#seorecheck","#seohunt"].forEach(s=>{
+  ["#seocheck","#seorecheck","#seohunt","#seoverify"].forEach(s=>{
     const b=$(s); if(!b) return;
     b.disabled = !seoConfigured;
     b.title = seoConfigured ? (s==="#seorecheck" ? "Overwrite cache and fetch again" : "") : msg;
@@ -878,11 +884,22 @@ function applySeoEnabled(){
     banner.textContent = msg;
   }
 }
+let lastBudgetCapUSD = null;
+function updateSpendDisplay(spend){
+  const el = $("#seospend"); if(!el || !spend) return;
+  if(spend.capUSD !== undefined) lastBudgetCapUSD = spend.capUSD;
+  const total = "$"+(Number(spend.total)||0).toFixed(2);
+  el.textContent = lastBudgetCapUSD
+    ? "DataForSEO this month: "+total+" / $"+Number(lastBudgetCapUSD).toFixed(2)
+    : "DataForSEO this month: "+total;
+  el.classList.toggle("err", !!(lastBudgetCapUSD && Number(spend.total) >= Number(lastBudgetCapUSD)));
+}
 async function loadHealth(){
   try{
     const res = await fetch("/api/health");
     const data = await res.json();
     seoConfigured = !!(data && data.configured);
+    updateSpendDisplay(data && data.spend);
   }catch(e){
     seoConfigured = false;
   }
@@ -1078,14 +1095,15 @@ const COL_TIPS = {
   rank: "Rank: DataForSEO backlink rank. Higher means a stronger link profile.",
   ref: "Ref: referring main domains — how many unique websites link to this name. Verdict and SEO score both use dofollow Ref only (total minus nofollow).",
   spam: "Spam is 0-100 from DataForSEO. Higher is worse. 0-30 low, 31-60 medium, 61-100 high. 50 is medium.",
-  verdict: "Buy (green), Research (amber), or Ignore (red) from spam, dofollow Rank/Ref, UK organic traffic, and UK search volume (100+/mo counts on its own; any organic traffic counts). Adds a brand note when a brand score is known. 50 spam with links is Research. Unchecked stays —.",
+  verdict: "Buy (green), Research (amber), or Ignore (red) from spam, dofollow Rank/Ref, UK organic traffic, and UK search volume (100+/mo counts on its own; any organic traffic counts). Adds a brand note when a brand score is known, and a link-trend note after Verify buy. 50 spam with links is Research. Unchecked stays —.",
   etv: "ETV: estimated UK organic clicks from DataForSEO Labs. Filled by Check SEO.",
   kw: "KW: hyphens become spaces and glued names split into dictionary words (prepschools.co.uk → “prep schools”). Google Ads exact UK volume, not Keyword Planner’s grouped estimate.",
   checked: "When Rank, Ref, Spam, ETV, and KW were last fetched. Cached names are not billed again.",
+  age: "Domain age from WHOIS created_datetime. Only known for names found via Find expiring — a long-registered domain dropping is a different signal than one that just churned owners. — when unknown.",
   domainWatch: "Starred name. Verdict and SEO score come from Check SEO. Brand score and time to drop come from the Nominet list when it is loaded."
 };
 const LIST_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-words"><col class="col-num"><col class="col-ttd"><col class="col-brand"><col class="col-tags">';
-const SEO_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-verdict"><col class="col-seo"><col class="col-brand"><col class="col-num"><col class="col-num"><col class="col-spam"><col class="col-num"><col class="col-kw"><col class="col-when">';
+const SEO_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-verdict"><col class="col-seo"><col class="col-brand"><col class="col-num"><col class="col-num"><col class="col-spam"><col class="col-num"><col class="col-kw"><col class="col-when"><col class="col-num">';
 const FAV_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-words"><col class="col-num"><col class="col-ttd"><col class="col-verdict"><col class="col-seo"><col class="col-brand"><col class="col-tags">';
 const LIST_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
@@ -1108,6 +1126,7 @@ const SEO_HEAD = '<tr>'+
   '<th data-k="etv" class="num" data-tip="'+COL_TIPS.etv+'">ETV <span class="ar"></span></th>'+
   '<th data-k="search_volume" class="num" data-tip="'+COL_TIPS.kw+'">KW <span class="ar"></span></th>'+
   '<th data-k="checkedAt" data-tip="'+COL_TIPS.checked+'">Checked <span class="ar"></span></th>'+
+  '<th data-k="registrationAgeDays" class="num" data-tip="'+COL_TIPS.age+'">Age <span class="ar"></span></th>'+
   '</tr>';
 const FAV_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
@@ -1216,7 +1235,7 @@ function applyViewChrome(){
   if(seo){
     if(["score","letters","drop_ms","words"].indexOf(sortKey)>=0){ sortKey="verdictRank"; sortDir=1; }
   } else if(!favsView) {
-    if(["buyScore","seoScore","rank","referring_main_domains","spam_score","etv","organic_count","search_volume","checkedAt","nameScore","verdictRank"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
+    if(["buyScore","seoScore","rank","referring_main_domains","spam_score","etv","organic_count","search_volume","checkedAt","nameScore","verdictRank","registrationAgeDays"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
   }
   setTableHead();
   const dropEl=$("#dropstate");
@@ -1260,6 +1279,17 @@ function fmtChecked(iso){
   const d = new Date(iso); if(isNaN(d)) return iso;
   return d.toISOString().slice(0,16).replace("T"," ");
 }
+function fmtAge(r){
+  const days = r.registrationAgeDays;
+  if(days==null || days==="") return '<span class="muted">—</span>';
+  const years = days/365;
+  return years>=1 ? years.toFixed(years<10?1:0)+"y" : days+"d";
+}
+function ageTip(r){
+  if(r.registrationAgeDays==null || r.registrationAgeDays==="") return COL_TIPS.age;
+  const created = r.created_datetime ? String(r.created_datetime).slice(0,10) : "unknown date";
+  return "Registered "+created+(r.registrar?" via "+r.registrar:"")+". From Find expiring's WHOIS data.";
+}
 function tagHtml(r){
   let t = "";
   if(r.commercial) t += '<span class="tag">commercial</span>';
@@ -1294,6 +1324,7 @@ function rowHtml(r, now){
       '<td class="num" data-tip="'+COL_TIPS.etv+'">'+(checked?fmtNum(r.etv):'<span class="muted">—</span>')+'</td>'+
       '<td class="num" data-tip="'+kwCellTip(r)+'">'+(checked?fmtNum(r.search_volume):'<span class="muted">—</span>')+'</td>'+
       '<td class="when" data-tip="'+COL_TIPS.checked+'">'+fmtChecked(r.checkedAt)+'</td>'+
+      '<td class="num" data-tip="'+ageTip(r)+'">'+fmtAge(r)+'</td>'+
       '</tr>';
   }
   const diff = r.drop_ms ? r.drop_ms - now : NaN;
@@ -1588,6 +1619,7 @@ async function checkSeo({ force=false, onlySelected=false } = {}){
       +(data.traffic?(", traffic "+data.traffic):"")
       +(data.volume?(", volume "+data.volume):"")
       +(data.cost?(" · $"+data.cost):""));
+    if(data.spendTotal!=null) updateSpendDisplay({ total: data.spendTotal });
     render();
   }catch(err){
     setSeoStatus(err.message || "SEO check failed", true);
@@ -1597,6 +1629,52 @@ async function checkSeo({ force=false, onlySelected=false } = {}){
 }
 $("#seocheck").addEventListener("click", ()=> checkSeo({ force:false }));
 $("#seorecheck").addEventListener("click", ()=> checkSeo({ force:true, onlySelected:true }));
+async function verifyBuy(){
+  if(!seoConfigured){
+    setSeoStatus("SEO lookups need DataForSEO secrets in Cloudflare Pages.", true);
+    applySeoEnabled();
+    return;
+  }
+  const targets = seoRows.filter(r=>selected.has(r.domain) && r.verdict==="buy").map(r=>r.domain);
+  if(!targets.length){
+    setSeoStatus("Select one or more Buy names to verify.");
+    return;
+  }
+  setSeoStatus("Checking link trend for "+targets.length+" domain"+(targets.length===1?"":"s")+"…");
+  $("#seoverify").disabled = true;
+  try{
+    const res = await fetch("/api/seo/verify", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ domains: targets })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || ("HTTP "+res.status));
+    const byDomain = new Map((data.items||[]).map(it=>[it.domain, it]));
+    let flagged = 0;
+    for(const row of seoRows){
+      const t = byDomain.get(row.domain); if(!t) continue;
+      row.newReferringDomains = t.newReferringDomains;
+      row.lostReferringDomains = t.lostReferringDomains;
+      row.linkTrendCheckedAt = new Date().toISOString();
+      const ref = Number(row.referring_main_domains) || 0;
+      const declining = ref>0 && t.lostReferringDomains >= ref*0.5;
+      if(declining) flagged++;
+      const base = (row.verdictReason||"").replace(/ Link trend:.*$/, "");
+      row.verdictReason = base + " Link trend: +"+t.newReferringDomains+" / -"+t.lostReferringDomains+" referring domains recently."
+        + (declining ? " Lost at least half its current Ref — link equity may already be gone, inspect before registering." : "");
+    }
+    saveSeo();
+    setSeoStatus("Verified "+targets.length+", "+flagged+" show a declining link trend."
+      +(data.cost?(" · $"+data.cost):""));
+    if(data.spendTotal!=null) updateSpendDisplay({ total: data.spendTotal });
+    render();
+  }catch(err){
+    setSeoStatus(err.message || "Verify buy failed", true);
+  }finally{
+    applySeoEnabled();
+  }
+}
+$("#seoverify").addEventListener("click", verifyBuy);
 $("#seoremove").addEventListener("click", ()=>{
   const n = seoRows.length;
   seoRows = seoRows.filter(r=>!selected.has(r.domain));
@@ -1641,7 +1719,10 @@ $("#seohunt").addEventListener("click", async ()=>{
         organic_count: it.organic_count,
         search_volume: it.search_volume,
         keyword: it.keyword,
-        expiration_datetime: it.expiration_datetime
+        expiration_datetime: it.expiration_datetime,
+        created_datetime: it.created_datetime,
+        registrar: it.registrar,
+        registrationAgeDays: it.registrationAgeDays
       };
     });
     const n = addSeoDomains((data.items||[]).map(it=>it.domain), extras);
@@ -1649,6 +1730,7 @@ $("#seohunt").addEventListener("click", async ()=>{
     document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active", x.getAttribute("data-view")==="seo"));
     setSeoStatus("Found "+(data.items||[]).length+", added "+n+" to SEO Scan. Check SEO to fill rank/spam."
       +(data.cost?(" · $"+data.cost):""));
+    if(data.spendTotal!=null) updateSpendDisplay({ total: data.spendTotal });
     render();
   }catch(err){
     setSeoStatus(err.message || "Expiring search failed", true);

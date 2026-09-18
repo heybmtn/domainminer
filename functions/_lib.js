@@ -1,5 +1,6 @@
 import { createDataForSeoClient } from "../lib/dataforseo.mjs";
 import { createKvCache } from "../lib/kv-cache.mjs";
+import { parseBudgetCap } from "../lib/spend.mjs";
 
 export function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -24,6 +25,11 @@ export function getClient(env) {
 
 export function getCache(env) {
   return createKvCache(env.SEO_CACHE);
+}
+
+/** Optional monthly spend cap in USD, from the DATAFORSEO_MONTHLY_BUDGET Pages variable. null = uncapped. */
+export function getBudgetCap(env) {
+  return parseBudgetCap(env.DATAFORSEO_MONTHLY_BUDGET);
 }
 
 export async function readJson(request) {

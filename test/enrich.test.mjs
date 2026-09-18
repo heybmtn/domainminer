@@ -4,7 +4,8 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createCache } from "../lib/cache.mjs";
-import { enrichDomains, buildExpiringTask, findExpiring, keywordFromDomain } from "../lib/enrich.mjs";
+import { enrichDomains, buildExpiringTask, findExpiring, keywordFromDomain, registrationAgeDays, verifyDomains } from "../lib/enrich.mjs";
+import { getSpend } from "../lib/spend.mjs";
 
 function bulkPayload(pathname, items, cost = 0.01) {
   if (pathname.includes("search_volume")) {
@@ -288,6 +289,8 @@ test("findExpiring results carry a null nameScore — they were never through th
             items: [{
               domain: "found.uk",
               expiration_datetime: "2026-09-25 00:00:00 +00:00",
+              created_datetime: "2010-09-25 00:00:00 +00:00",
+              registrar: "Example Registrar Ltd",
               registered: true,
               backlinks_info: { referring_domains: 3, referring_main_domains: 3, referring_main_domains_nofollow: 0 },
               metrics: { organic: { etv: 0, count: 0 } },
@@ -300,6 +303,138 @@ test("findExpiring results carry a null nameScore — they were never through th
   const out = await findExpiring({ tld: "uk" }, { client });
   assert.equal(out.items[0].domain, "found.uk");
   assert.equal(out.items[0].nameScore, null);
+  assert.equal(out.items[0].registrar, "Example Registrar Ltd");
+  assert.equal(out.items[0].created_datetime, "2010-09-25 00:00:00 +00:00");
+  assert.ok(out.items[0].registrationAgeDays > 5800, "16 years old should be well over 5800 days");
+});
+
+test("registrationAgeDays computes whole days and handles missing/bad input", () => {
+  const now = new Date("2026-09-18T00:00:00Z");
+  assert.equal(registrationAgeDays("2026-09-08T00:00:00Z", now), 10);
+  assert.equal(registrationAgeDays("", now), null);
+  assert.equal(registrationAgeDays(null, now), null);
+  assert.equal(registrationAgeDays("not a date", now), null);
+  assert.equal(registrationAgeDays("2026-09-20T00:00:00Z", now), null);
+});
+
+test("enrichDomains and findExpiring track running monthly spend", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
+  const cache = createCache(path.join(dir, "seo-cache.json"));
+  const calls = [];
+  const client = mockClient(calls);
+  const first = await enrichDomains(["spendcheck.uk"], { cache, client });
+  assert.ok(first.spendTotal > 0);
+  const spend = await getSpend({ cache });
+  assert.equal(spend.total, first.spendTotal);
+
+  const whoisClient = {
+    async post() {
+      return {
+        status_code: 20000,
+        cost: 0.03,
+        tasks: [{ status_code: 20000, cost: 0.03, result: [{ items: [] }] }],
+      };
+    },
+  };
+  const expiring = await findExpiring({ tld: "uk" }, { client: whoisClient, cache });
+  assert.equal(Math.round((expiring.spendTotal - first.spendTotal) * 100) / 100, 0.03);
+});
+
+test("enrichDomains blocks new paid calls once the monthly budget cap is reached", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
+  const cache = createCache(path.join(dir, "seo-cache.json"));
+  const calls = [];
+  const client = mockClient(calls);
+  await enrichDomains(["over.uk"], { cache, client, budgetCapUSD: 0.01 });
+  const before = calls.length;
+  await assert.rejects(
+    () => enrichDomains(["over2.uk"], { cache, client, budgetCapUSD: 0.01 }),
+    (err) => {
+      assert.equal(err.status, 402);
+      assert.match(err.message, /spend cap reached/i);
+      return true;
+    },
+  );
+  assert.equal(calls.length, before, "no new DataForSEO calls should be made once the cap is reached");
+});
+
+test("a cache hit with no new paid calls is never blocked by the budget cap", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
+  const cache = createCache(path.join(dir, "seo-cache.json"));
+  const calls = [];
+  const client = mockClient(calls);
+  await enrichDomains(["cached.uk"], { cache, client, budgetCapUSD: 0.01 });
+  const before = calls.length;
+  const out = await enrichDomains(["cached.uk"], { cache, client, budgetCapUSD: 0.01 });
+  assert.equal(calls.length, before);
+  assert.equal(out.cached, 1);
+});
+
+test("verifyDomains reports gained/lost referring domains per target", async () => {
+  const calls = [];
+  const client = {
+    async post(pathname, task) {
+      calls.push({ pathname, task });
+      return {
+        status_code: 20000,
+        cost: 0.04,
+        tasks: [{
+          status_code: 20000,
+          cost: 0.04,
+          result: [{
+            items_count: 2,
+            items: [
+              { target: "stable.uk", new_referring_domains: 2, lost_referring_domains: 1 },
+              { target: "declining.uk", new_referring_domains: 0, lost_referring_domains: 35 },
+            ],
+          }],
+        }],
+      };
+    },
+  };
+  const out = await verifyDomains(["stable.uk", "declining.uk"], { client });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].pathname, /bulk_new_lost_referring_domains/);
+  assert.deepEqual(calls[0].task, { targets: ["stable.uk", "declining.uk"] });
+  const declining = out.items.find((i) => i.domain === "declining.uk");
+  assert.equal(declining.newReferringDomains, 0);
+  assert.equal(declining.lostReferringDomains, 35);
+  assert.equal(out.cost, 0.04);
+});
+
+test("verifyDomains defaults a target missing from the response to zero, not a crash", async () => {
+  const client = {
+    async post() {
+      return {
+        status_code: 20000,
+        cost: 0,
+        tasks: [{ status_code: 20000, cost: 0, result: [{ items: [] }] }],
+      };
+    },
+  };
+  const out = await verifyDomains(["missing.uk"], { client });
+  assert.equal(out.items[0].newReferringDomains, 0);
+  assert.equal(out.items[0].lostReferringDomains, 0);
+});
+
+test("verifyDomains requires a client and respects the budget cap", async () => {
+  await assert.rejects(
+    () => verifyDomains(["a.uk"], { client: null }),
+    (err) => { assert.equal(err.status, 503); return true; },
+  );
+
+  const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
+  const cache = createCache(path.join(dir, "seo-cache.json"));
+  const client = {
+    async post() {
+      return { status_code: 20000, cost: 0.02, tasks: [{ status_code: 20000, cost: 0.02, result: [{ items: [] }] }] };
+    },
+  };
+  await verifyDomains(["a.uk"], { cache, client, budgetCapUSD: 0.01 });
+  await assert.rejects(
+    () => verifyDomains(["b.uk"], { cache, client, budgetCapUSD: 0.01 }),
+    (err) => { assert.equal(err.status, 402); return true; },
+  );
 });
 
 test("buildExpiringTask filters UK names expiring soon with a backlink floor", () => {

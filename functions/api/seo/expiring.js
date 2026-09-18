@@ -1,5 +1,5 @@
 import { findExpiring } from "../../../lib/enrich.mjs";
-import { fail, getClient, json, readJson } from "../../_lib.js";
+import { fail, getBudgetCap, getCache, getClient, json, readJson } from "../../_lib.js";
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -11,7 +11,7 @@ export async function onRequestPost({ request, env }) {
       minRefDomains: body.minRefDomains,
       minOrganic: body.minOrganic,
       limit: body.limit,
-    }, { client: getClient(env) });
+    }, { client: getClient(env), cache: getCache(env), budgetCapUSD: getBudgetCap(env) });
     return json(result);
   } catch (err) {
     return fail(err);
