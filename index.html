@@ -774,8 +774,16 @@
     return head + "\n" + body.join("\n") + "\n";
   }
 
+  function toWatchCsv(rows) {
+    var head = "domain,tld,words,word_count,letters,score,verdict,seoScore,nameScore,commercial,invented,drop_time,checkedAt";
+    var body = rows.map(function (r) {
+      return [r.domain, r.tld, r.words, r.word_count, r.letters, r.score, r.verdict, r.seoScore, r.nameScore, r.commercial, r.invented ? 1 : 0, r.drop_time, r.checkedAt].map(csvCell).join(",");
+    });
+    return head + "\n" + body.join("\n") + "\n";
+  }
+
   var api = { buildVocab: buildVocab, segment: segment, tokenise: tokenise, makeCandidate: makeCandidate,
-              processCsv: processCsv, applyFilters: applyFilters, toCsv: toCsv, toSeoCsv: toSeoCsv,
+              processCsv: processCsv, applyFilters: applyFilters, toCsv: toCsv, toSeoCsv: toSeoCsv, toWatchCsv: toWatchCsv,
               seoScore: seoScore, buyScore: buyScore, spamBand: spamBand, brandBand: brandBand, seoBand: seoBand,
               buyVerdict: buyVerdict, withScores: withScores,
               dofollowMain: dofollowMain, hasTraffic: hasTraffic, keywordFromDomain: keywordFromDomain,
@@ -1027,16 +1035,33 @@ function sortArr(arr){
 }
 function sortFiltered(){ sortArr(filtered); }
 function favRows(){
+  const seoBy = new Map(seoRows.map(r=>[r.domain, r]));
   return [...favs].map(d=>{
-    const r = favMap.get(d);
-    if(r) return r;
-    const seo = seoRows.find(x=>x.domain===d);
-    let tld="uk", label=d;
-    if(d.endsWith(".co.uk")){ tld="co.uk"; label=d.slice(0,-6); }
-    else if(d.endsWith(".uk")){ tld="uk"; label=d.slice(0,-3); }
-    return {domain:d, tld:tld, words:"", word_count:0, letters:label.length, score: seo&&seo.nameScore?seo.nameScore:0,
-            commercial:0, drop_time:"", drop_ms:0, hasDigit:false, hasHyphen:false, hasUS:false,
-            isWords:false, invented:false, notInList:true};
+    const list = favMap.get(d);
+    const seo = seoBy.get(d);
+    let row;
+    if(list){
+      row = Object.assign({}, list);
+    } else {
+      let tld="uk", label=d;
+      if(d.endsWith(".co.uk")){ tld="co.uk"; label=d.slice(0,-6); }
+      else if(d.endsWith(".uk")){ tld="uk"; label=d.slice(0,-3); }
+      row = {domain:d, tld:tld, words:"", word_count:0, letters:label.length, score: seo&&seo.nameScore?seo.nameScore:0,
+              commercial:0, drop_time:"", drop_ms:0, hasDigit:false, hasHyphen:false, hasUS:false,
+              isWords:false, invented:false, notInList:true};
+    }
+    if(seo){
+      row.nameScore = (seo.nameScore!=null && seo.nameScore!=="") ? seo.nameScore : row.score;
+      if(!row.score) row.score = row.nameScore || 0;
+      row.seoScore = seo.seoScore;
+      row.verdict = seo.verdict;
+      row.verdictRank = seo.checkedAt ? seo.verdictRank : 3;
+      row.verdictReason = seo.verdictReason;
+      row.checkedAt = seo.checkedAt;
+    } else {
+      row.verdictRank = 3;
+    }
+    return row;
   });
 }
 function currentRows(){
@@ -1066,10 +1091,12 @@ const COL_TIPS = {
   verdict: "Buy (green), Research (amber), or Ignore (red) from spam, Rank/Ref, UK traffic, and monthly searches. 50 spam with links is Research. Unchecked stays —.",
   etv: "ETV: estimated UK organic clicks from DataForSEO Labs. Filled by Check SEO.",
   kw: "KW: hyphens become spaces and glued names split into dictionary words (prepschools.co.uk → “prep schools”). Google Ads exact UK volume, not Keyword Planner’s grouped estimate.",
-  checked: "When Rank, Ref, Spam, ETV, and KW were last fetched. Cached names are not billed again."
+  checked: "When Rank, Ref, Spam, ETV, and KW were last fetched. Cached names are not billed again.",
+  domainWatch: "Starred name. Verdict and SEO score come from Check SEO. Brand score and time to drop come from the Nominet list when it is loaded."
 };
 const LIST_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-words"><col class="col-num"><col class="col-ttd"><col class="col-brand"><col class="col-tags">';
 const SEO_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-verdict"><col class="col-seo"><col class="col-brand"><col class="col-num"><col class="col-num"><col class="col-spam"><col class="col-num"><col class="col-kw"><col class="col-when">';
+const FAV_COLS = '<col class="col-sel"><col class="col-domain"><col class="col-words"><col class="col-num"><col class="col-ttd"><col class="col-verdict"><col class="col-seo"><col class="col-brand"><col class="col-tags">';
 const LIST_HEAD = '<tr>'+
   '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
   '<th data-k="domain" data-tip="'+COL_TIPS.domainList+'">Domain <span class="ar"></span></th>'+
@@ -1091,6 +1118,17 @@ const SEO_HEAD = '<tr>'+
   '<th data-k="etv" class="num" data-tip="'+COL_TIPS.etv+'">ETV <span class="ar"></span></th>'+
   '<th data-k="search_volume" class="num" data-tip="'+COL_TIPS.kw+'">KW <span class="ar"></span></th>'+
   '<th data-k="checkedAt" data-tip="'+COL_TIPS.checked+'">Checked <span class="ar"></span></th>'+
+  '</tr>';
+const FAV_HEAD = '<tr>'+
+  '<th class="selcol"><input type="checkbox" id="selall" title="Select all shown"></th>'+
+  '<th data-k="domain" data-tip="'+COL_TIPS.domainWatch+'">Domain <span class="ar"></span></th>'+
+  '<th data-k="words" data-tip="'+COL_TIPS.words+'">Words <span class="ar"></span></th>'+
+  '<th data-k="letters" class="num" data-tip="'+COL_TIPS.letters+'">Length <span class="ar"></span></th>'+
+  '<th data-k="drop_ms" data-tip="'+COL_TIPS.drop+'">Time to drop <span class="ar"></span></th>'+
+  '<th data-k="verdictRank" data-tip="'+COL_TIPS.verdict+'">Verdict <span class="ar"></span></th>'+
+  '<th data-k="seoScore" data-tip="'+COL_TIPS.seo+'">SEO score <span class="ar"></span></th>'+
+  '<th data-k="score" data-tip="'+COL_TIPS.brand+'">Brand score <span class="ar"></span></th>'+
+  '<th data-tip="'+COL_TIPS.tags+'">Tags</th>'+
   '</tr>';
 
 function bindSelAll(){
@@ -1160,13 +1198,14 @@ function setTableHead(){
   const thead = table && table.querySelector("thead");
   if(!table || !thead) return;
   const seo = view==="seo";
-  COLS = seo ? 11 : 7;
+  const favsView = view==="favs";
+  COLS = seo ? 11 : (favsView ? 9 : 7);
   let cg = table.querySelector("colgroup");
   if(!cg){ cg = document.createElement("colgroup"); table.insertBefore(cg, thead); }
   if(lastHeadView !== view){
     lastHeadView = view;
-    cg.innerHTML = seo ? SEO_COLS : LIST_COLS;
-    thead.innerHTML = seo ? SEO_HEAD : LIST_HEAD;
+    cg.innerHTML = seo ? SEO_COLS : (favsView ? FAV_COLS : LIST_COLS);
+    thead.innerHTML = seo ? SEO_HEAD : (favsView ? FAV_HEAD : LIST_HEAD);
   }
   bindSelAll(); bindHeadSort(); bindColTips();
 }
@@ -1186,7 +1225,7 @@ function applyViewChrome(){
   const add=$("#addtoseo"); if(add) add.style.display = seo ? "none" : "";
   if(seo){
     if(["score","letters","drop_ms","words"].indexOf(sortKey)>=0){ sortKey="verdictRank"; sortDir=1; }
-  } else {
+  } else if(!favsView) {
     if(["buyScore","seoScore","rank","referring_main_domains","spam_score","etv","organic_count","search_volume","checkedAt","nameScore","verdictRank"].indexOf(sortKey)>=0){ sortKey="score"; sortDir=-1; }
   }
   setTableHead();
@@ -1274,6 +1313,25 @@ function rowHtml(r, now){
   const until = !r.drop_ms ? '' : (dropped ? 'dropped' : fmtDur(diff));
   const ttdCls = urgent ? 'ttd urgent' : (soon ? 'ttd soon' : (dropped ? 'ttd dropped' : 'ttd'));
   const words = r.words ? r.words : '<span class="muted">—</span>';
+  if(view==="favs"){
+    const checked = !!r.checkedAt;
+    const hasBrand = r.score != null && r.score !== "";
+    const brand = hasBrand ? scoreBandHtml(DropCore.brandBand(r.score)) : '<span class="muted">—</span>';
+    const vTip = r.verdictReason || COL_TIPS.verdict;
+    const seo = checked ? scoreBandHtml(DropCore.seoBand(r.seoScore)) : '<span class="muted">—</span>';
+    const seoTip = checked ? scoreBandTip("seo", r.seoScore) : COL_TIPS.seo;
+    const brandTip = hasBrand ? scoreBandTip("brand", r.score) : COL_TIPS.brand;
+    return '<tr'+(r.notInList?' class="notinlist"':'')+'>'+
+      sel+dom+
+      '<td class="wordscell" data-tip="'+COL_TIPS.words+'">'+words+'</td>'+
+      '<td class="num" data-tip="'+COL_TIPS.letters+'">'+(r.letters||'')+'</td>'+
+      '<td data-tip="'+COL_TIPS.drop+'"><span class="'+ttdCls+'" data-drop-ms="'+(r.drop_ms||'')+'" title="'+(r.drop_time||'')+'">'+until+'</span></td>'+
+      '<td data-tip="'+vTip+'">'+verdictHtml(r)+'</td>'+
+      '<td data-tip="'+seoTip+'">'+seo+'</td>'+
+      '<td data-tip="'+brandTip+'">'+brand+'</td>'+
+      '<td data-tip="'+COL_TIPS.tags+'">'+tagHtml(r)+'</td>'+
+      '</tr>';
+  }
   return '<tr'+(r.notInList?' class="notinlist"':'')+'>'+
     sel+dom+
     '<td class="wordscell" data-tip="'+COL_TIPS.words+'">'+words+'</td>'+
@@ -1426,7 +1484,9 @@ $("#resetseen").addEventListener("click", (e)=>{
 
 function downloadCsv(rows, tag){
   if(!rows.length) return;
-  const csv = (view==="seo" || tag==="seo-scan") ? DropCore.toSeoCsv(rows) : DropCore.toCsv(rows);
+  const csv = (view==="seo" || tag==="seo-scan" || tag==="seo-selected") ? DropCore.toSeoCsv(rows)
+    : (view==="favs" || tag==="watchlist" || tag==="watchlist-selected") ? DropCore.toWatchCsv(rows)
+    : DropCore.toCsv(rows);
   const blob = new Blob([csv], {type:"text/csv"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -1436,8 +1496,10 @@ function downloadCsv(rows, tag){
 }
 $("#download").addEventListener("click", ()=> downloadCsv(currentRows(), view==="seo"?"seo-scan":(view==="favs"?"watchlist":"list")));
 $("#exportsel").addEventListener("click", ()=>{
-  const rows = view==="seo" ? seoRows.filter(r=>selected.has(r.domain)) : allRows.filter(r=>selected.has(r.domain));
-  downloadCsv(rows, view==="seo"?"seo-selected":"selected");
+  const rows = view==="seo" ? seoRows.filter(r=>selected.has(r.domain))
+    : view==="favs" ? favRows().filter(r=>selected.has(r.domain))
+    : allRows.filter(r=>selected.has(r.domain));
+  downloadCsv(rows, view==="seo"?"seo-selected":(view==="favs"?"watchlist-selected":"selected"));
 });
 
 function legacyCopy(txt){

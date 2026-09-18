@@ -112,3 +112,14 @@ test("fmtDur shows minutes and seconds under one hour", () => {
   assert.equal(DropCore.fmtDur(0), "dropped");
   assert.equal(DropCore.fmtDur(-1000), "dropped");
 });
+
+test("toWatchCsv includes verdict and SEO score numbers", () => {
+  const csv = DropCore.toWatchCsv([{
+    domain: "home.co.uk", tld: "co.uk", words: "home", word_count: 1, letters: 4,
+    score: 8.39, verdict: "buy", seoScore: 10.43, nameScore: 8.39,
+    commercial: 0, invented: false, drop_time: "2026-09-19T12:00:00Z",
+    checkedAt: "2026-09-18T09:00:00.000Z"
+  }]);
+  assert.match(csv, /^domain,tld,words,word_count,letters,score,verdict,seoScore,nameScore/);
+  assert.match(csv, /home\.co\.uk,co\.uk,home,1,4,8\.39,buy,10\.43,8\.39/);
+});

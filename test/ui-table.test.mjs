@@ -129,3 +129,24 @@ test("Time to drop ticks every second with minutes and seconds under an hour", (
   assert.match(html, /function tickDrop/);
   assert.match(html, /m \+ "m " \+ \(s < 10 \? "0" : ""\) \+ s \+ "s"/);
 });
+
+test("Watchlist shows Verdict, SEO score, and Brand score", () => {
+  const head = grab("FAV_HEAD");
+  for (const label of ["Verdict", "SEO score", "Brand score", "Time to drop"]) {
+    assert.match(head, new RegExp(`data-tip="[^"]+"[^>]*>${label}`), `${label} needs a data-tip`);
+  }
+  assert.match(head, /data-k="verdictRank"/);
+  assert.match(head, /data-k="seoScore"/);
+  assert.match(head, /data-k="score"/);
+  assert.match(html, /FAV_COLS = '.*col-verdict.*col-seo.*col-brand/);
+  assert.match(html, /favsView \? FAV_COLS/);
+  assert.match(html, /favsView \? FAV_HEAD/);
+  assert.match(html, /COLS = seo \? 11 : \(favsView \? 9 : 7\)/);
+  assert.match(html, /row\.verdict = seo\.verdict/);
+  assert.match(html, /row\.seoScore = seo\.seoScore/);
+  assert.match(html, /row\.checkedAt = seo\.checkedAt/);
+  assert.match(html, /if\(view==="favs"\)\{/);
+  assert.match(html, /function toWatchCsv/);
+  assert.match(html, /toWatchCsv: toWatchCsv/);
+  assert.match(html, /Starred name\. Verdict and SEO score come from Check SEO/);
+});
