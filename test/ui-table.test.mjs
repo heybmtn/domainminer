@@ -16,15 +16,19 @@ test("SEO domain headers are numeric and have hover explainers", () => {
   for (const label of ["Verdict", "SEO score", "Brand score", "Rank", "Ref", "Spam", "ETV", "KW", "Checked"]) {
     assert.match(head, new RegExp(`data-tip="[^"]+"[^>]*>${label}`), `${label} needs a data-tip`);
   }
-  for (const k of ["seoScore", "nameScore", "rank", "referring_main_domains", "spam_score", "etv", "search_volume"]) {
+  for (const k of ["rank", "referring_main_domains", "spam_score", "etv", "search_volume"]) {
     assert.match(head, new RegExp(`data-k="${k}" class="num"`), `${k} header must be right-aligned`);
   }
+  assert.match(head, /data-k="seoScore"/);
+  assert.match(head, /data-k="nameScore"/);
   assert.match(head, /data-k="verdictRank"/);
+  assert.doesNotMatch(head, /data-k="seoScore" class="num"/);
+  assert.doesNotMatch(head, /data-k="nameScore" class="num"/);
 });
 
 test("SEO domain rows attach explainers to each metric cell", () => {
-  assert.match(html, /data-tip="'\+COL_TIPS\.seo\+'/);
-  assert.match(html, /data-tip="'\+COL_TIPS\.brand\+'/);
+  assert.match(html, /data-tip="'\+seoTip\+'/);
+  assert.match(html, /data-tip="'\+brandTip\+'/);
   assert.match(html, /data-tip="'\+COL_TIPS\.rank\+'/);
   assert.match(html, /data-tip="'\+COL_TIPS\.ref\+'/);
   assert.match(html, /data-tip="'\+COL_TIPS\.spam\+'/);
@@ -32,6 +36,8 @@ test("SEO domain rows attach explainers to each metric cell", () => {
   assert.match(html, /data-tip="'\+kwCellTip\(r\)\+'/);
   assert.match(html, /data-tip="'\+COL_TIPS\.checked\+'/);
   assert.match(html, /function verdictHtml/);
+  assert.match(html, /function scoreBandHtml/);
+  assert.match(html, /function scoreBandTip/);
   assert.match(html, /function fmtSpam/);
 });
 
@@ -85,6 +91,24 @@ test("SEO score hover explains the formula in plain language", () => {
   assert.match(html, /dofollow Ref \+ Rank/);
   assert.match(html, /UK ETV \+ UK monthly searches/);
   assert.match(html, /Brand score does not change this/);
+});
+
+test("Brand and SEO scores render Weak / OK / Strong lights instead of decimals", () => {
+  assert.match(html, /function scoreBandHtml/);
+  assert.match(html, /scoreBandHtml\(DropCore\.brandBand/);
+  assert.match(html, /scoreBandHtml\(DropCore\.seoBand/);
+  assert.match(html, /Weak \/ OK \/ Strong/);
+  assert.match(html, /Strong is 7\+/);
+  assert.match(html, /OK is 3\.5\+/);
+  assert.match(html, /Strong is 5\+/);
+  assert.match(html, /Weak is negative/);
+  assert.match(html, /\.score-band\.strong \.verdict-dot\{background:#2d8a4e\}/);
+  assert.match(html, /\.score-band\.ok \.verdict-dot\{background:#c9a227\}/);
+  assert.match(html, /\.score-band\.weak \.verdict-dot\{background:#b33\}/);
+  assert.match(html, /band\.label\+" \("\+num\+"\)\. "\+explainer/);
+  assert.doesNotMatch(html, /Number\(r\.seoScore\|\|0\)\.toFixed\(2\)/);
+  assert.doesNotMatch(html, /Number\(r\.nameScore\)\.toFixed\(2\)/);
+  assert.doesNotMatch(html, /Number\(r\.score\|\|0\)\.toFixed\(2\)/);
 });
 
 test("Verdict is Buy, Research, or Ignore with a traffic-light dot", () => {

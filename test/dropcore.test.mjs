@@ -32,6 +32,18 @@ test("invented brandables get a modest score and invented tag", () => {
   assert.ok(home.score > lumo.score);
 });
 
+test("brandBand maps invented names to OK and home-class names to Strong", () => {
+  const lumo = DropCore.makeCandidate("lumo.uk", "", V, N, 3);
+  assert.ok(lumo.score >= 3.5 && lumo.score < 7);
+  assert.equal(DropCore.brandBand(lumo.score).label, "OK");
+  const home = DropCore.makeCandidate("home.co.uk", "", V, N, 3);
+  assert.ok(home.score >= 8);
+  assert.equal(DropCore.brandBand(home.score).label, "Strong");
+  assert.equal(DropCore.seoBand(10).label, "Strong");
+  assert.equal(DropCore.seoBand(2).label, "OK");
+  assert.equal(DropCore.seoBand(-4).label, "Weak");
+});
+
 test(".co.uk gets a small boost over the matching .uk name", () => {
   const uk = DropCore.makeCandidate("lumo.uk", "", V, N, 3);
   const co = DropCore.makeCandidate("lumo.co.uk", "", V, N, 3);
