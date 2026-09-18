@@ -179,7 +179,7 @@ export function createServer({ cachePath } = {}) {
         const items = await judgeBrandabilityBatch(getJevClient(), rows, {
           cache,
           budgetCapUSD: getJevBudgetCap(),
-          concurrency: 8,
+          concurrency: 5,
         });
         const cost = items.reduce((sum, it) => sum + (it.cost || 0), 0);
         const spend = await getSpend({ cache, service: "jev" });

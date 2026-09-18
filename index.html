@@ -1515,6 +1515,15 @@ function render(){
 window.__processText = processText;
 function runFilters(){ filtered=[]; window.__filteredOnce=false; applyAndRender(); }
 
+/**
+ * Cloudflare caps total subrequests (fetch + KV get/put) per Function
+ * invocation, so the whole droplist can never go in one request — the
+ * server enforces its own cap defensively, but the real fix has to be
+ * here: chunk the list and issue many separate requests.
+ */
+const JEV_CHUNK_SIZE = 15;
+const JEV_REQUEST_CONCURRENCY = 3;
+
 async function runJevShortlist(){
   const statusEl = $("#jevshortliststatus");
   if(!jevConfigured){
@@ -1527,36 +1536,61 @@ async function runJevShortlist(){
   }
   const size = Math.max(1, +$("#jevshortlistsize").value || 200);
   const rows = allRows.map(r=>({domain:r.domain, words:r.words, tld:r.tld}));
+  const chunks = [];
+  for(let i=0;i<rows.length;i+=JEV_CHUNK_SIZE) chunks.push(rows.slice(i, i+JEV_CHUNK_SIZE));
+
   $("#jevshortlistrun").disabled = true;
-  if(statusEl) statusEl.textContent = "Scoring "+rows.length.toLocaleString()+" names with Jev… this can take a while.";
-  try{
-    const res = await fetch("/api/jev/shortlist", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ rows })
-    });
-    const data = await res.json().catch(()=>({}));
-    if(!res.ok) throw new Error(data.error || ("HTTP "+res.status));
-    const scored = new Map();
-    let errors = 0;
-    (data.items||[]).forEach(it=>{
-      if(it.error){ errors++; return; }
-      scored.set(it.domain, it);
-      const row = favMap.get(it.domain);
-      if(row) row.jevBrand = it;
-    });
-    const ranked = [...scored.entries()].sort((a,b)=>(b[1].score||0)-(a[1].score||0));
-    jevShortlist = new Set(ranked.slice(0, size).map(([d])=>d));
-    $("#jevshortlistonly").disabled = false;
-    if(statusEl) statusEl.textContent = "Scored "+scored.size.toLocaleString()+" names"
-      +(errors?(", "+errors+" failed"):"")+". Shortlist: top "+jevShortlist.size.toLocaleString()+"."
-      +(data.cost?(" · $"+data.cost.toFixed(6)):"");
-    if(data.spendTotal!=null) updateJevSpendDisplay({ total: data.spendTotal });
-    runFilters();
-  }catch(err){
-    if(statusEl) statusEl.textContent = err.message || "Jev shortlist failed";
-  }finally{
-    $("#jevshortlistrun").disabled = !jevConfigured;
+  const scored = new Map();
+  let errors = 0, totalCost = 0, done = 0, failed = null;
+
+  function updateProgress(){
+    if(!statusEl) return;
+    statusEl.textContent = "Scoring with Jev… "+done+"/"+chunks.length+" batches"
+      +(scored.size?(" · "+scored.size.toLocaleString()+" scored"):"")
+      +(errors?(", "+errors+" failed"):"");
   }
+  updateProgress();
+
+  async function runChunk(chunk){
+    try{
+      const res = await fetch("/api/jev/shortlist", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ rows: chunk })
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.error || ("HTTP "+res.status));
+      (data.items||[]).forEach(it=>{
+        if(it.error){ errors++; return; }
+        scored.set(it.domain, it);
+        const row = favMap.get(it.domain);
+        if(row) row.jevBrand = it;
+      });
+      totalCost += data.cost || 0;
+      if(data.spendTotal!=null) updateJevSpendDisplay({ total: data.spendTotal });
+    }catch(err){
+      failed = err.message || "Jev shortlist failed";
+    }
+    done++;
+    updateProgress();
+  }
+
+  let cursor = 0;
+  async function worker(){
+    while(cursor < chunks.length && !failed){
+      await runChunk(chunks[cursor++]);
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(JEV_REQUEST_CONCURRENCY, chunks.length)}, worker));
+
+  const ranked = [...scored.entries()].sort((a,b)=>(b[1].score||0)-(a[1].score||0));
+  jevShortlist = new Set(ranked.slice(0, size).map(([d])=>d));
+  if(jevShortlist.size) $("#jevshortlistonly").disabled = false;
+  if(statusEl) statusEl.textContent = (failed ? failed+" — " : "")
+    +"Scored "+scored.size.toLocaleString()+" names"
+    +(errors?(", "+errors+" failed"):"")+". Shortlist: top "+jevShortlist.size.toLocaleString()+"."
+    +(totalCost?(" · $"+totalCost.toFixed(6)):"");
+  runFilters();
+  $("#jevshortlistrun").disabled = !jevConfigured;
 }
 $("#jevshortlistrun").addEventListener("click", runJevShortlist);
 $("#jevshortlistonly").addEventListener("change", runFilters);

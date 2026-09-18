@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   brandBandFromScore,
   judgeBrandabilityBatch,
+  MAX_ROWS_PER_REQUEST,
   stateForDomain,
 } from "../lib/jevJudgments.mjs";
 import { createJevClient } from "../lib/jev.mjs";
@@ -71,13 +72,13 @@ test("judgeBrandabilityBatch surfaces a per-row error without failing the whole 
   assert.equal(out[1].band, "ok");
 });
 
-test("judgeBrandabilityBatch caps at MAX_SHORTLIST_ROWS", async () => {
+test("judgeBrandabilityBatch caps at MAX_ROWS_PER_REQUEST — the client must chunk a whole droplist across many requests, not send it in one", async () => {
   const fetchImpl = fakeFetch(async () => ({
     answers: { brandability: { type: "score", score: 1, confidence: 0.5 } },
     usage: { input_tokens: 1, output_tokens: 1 },
   }));
   const client = createJevClient({ apiKey: "k", fetchImpl });
-  const rows = Array.from({ length: 5010 }, (_, i) => ({ domain: `d${i}.uk`, words: "", tld: "uk" }));
-  const out = await judgeBrandabilityBatch(client, rows, { concurrency: 20 });
-  assert.equal(out.length, 5000);
+  const rows = Array.from({ length: 30 }, (_, i) => ({ domain: `d${i}.uk`, words: "", tld: "uk" }));
+  const out = await judgeBrandabilityBatch(client, rows, { concurrency: 5 });
+  assert.equal(out.length, MAX_ROWS_PER_REQUEST);
 });
