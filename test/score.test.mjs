@@ -5,6 +5,8 @@ import {
   buyScore,
   buyVerdict,
   dofollowMain,
+  MIN_SEARCH_VOLUME_ONLY,
+  normalizedBrand,
   seoBand,
   seoScore,
   spamBand,
@@ -33,12 +35,80 @@ test("seoScore uses dofollow Ref and search volume, not ranking-keyword count", 
   assert.ok(withKw > 0);
 });
 
-test("buyScore adds the Nominet name score", () => {
+test("buyScore adds the Nominet name score, scaled onto the SEO score's range", () => {
   const metrics = { rank: 100, referring_main_domains: 10, spam_score: 10, etv: 0, nameScore: 8 };
   const seo = seoScore(metrics);
-  assert.equal(buyScore(metrics), Math.round((seo + 8) * 100) / 100);
+  assert.equal(buyScore(metrics), Math.round((seo + normalizedBrand(8)) * 100) / 100);
   assert.equal(withScores(metrics).buyScore, buyScore(metrics));
   assert.equal(withScores(metrics).seoScore, seo);
+});
+
+test("normalizedBrand puts a Strong brand (7) at the same magnitude as a Strong SEO score (5)", () => {
+  assert.equal(normalizedBrand(7), 5);
+  assert.equal(normalizedBrand(0), 0);
+  assert.equal(normalizedBrand(null), 0);
+});
+
+test("all-nofollow referring domains do not count as meaningful links", () => {
+  const hint = buyVerdict({
+    checkedAt: "2026-09-17T13:00:00.000Z",
+    spam_score: 10,
+    rank: 0,
+    referring_main_domains: 20,
+    referring_main_domains_nofollow: 20,
+  });
+  assert.equal(dofollowMain({ referring_main_domains: 20, referring_main_domains_nofollow: 20 }), 0);
+  assert.equal(hint.verdict, "skip");
+  assert.match(hint.reason, /dofollow/i);
+});
+
+test("search volume below the floor alone is not enough to buy", () => {
+  const below = buyVerdict({
+    checkedAt: "2026-09-17T13:00:00.000Z",
+    spam_score: 8,
+    rank: 0,
+    referring_main_domains: 0,
+    etv: 0,
+    search_volume: MIN_SEARCH_VOLUME_ONLY - 1,
+  });
+  assert.equal(below.verdict, "skip");
+  const atFloor = buyVerdict({
+    checkedAt: "2026-09-17T13:00:00.000Z",
+    spam_score: 8,
+    rank: 0,
+    referring_main_domains: 0,
+    etv: 0,
+    search_volume: MIN_SEARCH_VOLUME_ONLY,
+  });
+  assert.equal(atFloor.verdict, "buy");
+});
+
+test("buyVerdict adds a brand caveat only when nameScore is known", () => {
+  const noBrand = buyVerdict({
+    checkedAt: "2026-09-17T13:00:00.000Z",
+    spam_score: 10,
+    rank: 12,
+    referring_main_domains: 10,
+  });
+  assert.doesNotMatch(noBrand.reason, /brand name/i);
+
+  const weakBrand = buyVerdict({
+    checkedAt: "2026-09-17T13:00:00.000Z",
+    spam_score: 10,
+    rank: 12,
+    referring_main_domains: 10,
+    nameScore: 2,
+  });
+  assert.match(weakBrand.reason, /brand name is weak/i);
+
+  const strongBrand = buyVerdict({
+    checkedAt: "2026-09-17T13:00:00.000Z",
+    spam_score: 10,
+    rank: 12,
+    referring_main_domains: 10,
+    nameScore: 8,
+  });
+  assert.match(strongBrand.reason, /brand name is strong/i);
 });
 
 test("spam 50 is medium and caution when the name has links", () => {

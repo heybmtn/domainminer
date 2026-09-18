@@ -611,7 +611,8 @@
   }
 
   function round2(n) { return Math.round(n * 100) / 100; }
-  var MIN_REF_LINKS = 5, MIN_RANK_LINKS = 40;
+  var MIN_REF_LINKS = 5, MIN_RANK_LINKS = 40, MIN_SEARCH_VOLUME_ONLY = 100;
+  var BRAND_STRONG = 7, SEO_STRONG = 5;
 
   function dofollowMain(m) {
     m = m || {};
@@ -645,7 +646,7 @@
 
   function hasTraffic(m) {
     m = m || {};
-    return (Number(m.etv) || 0) > 0 || (Number(m.search_volume) || 0) > 0;
+    return (Number(m.etv) || 0) > 0 || (Number(m.search_volume) || 0) >= MIN_SEARCH_VOLUME_ONLY;
   }
 
   function seoScore(m) {
@@ -655,8 +656,14 @@
       + Math.log1p(Number(m.search_volume) || 0));
   }
 
+  function normalizedBrand(nameScore) {
+    var n = Number(nameScore);
+    if (!isFinite(n)) return 0;
+    return n * (SEO_STRONG / BRAND_STRONG);
+  }
+
   function buyScore(m) {
-    return round2(seoScore(m) + (Number(m && m.nameScore) || 0));
+    return round2(seoScore(m) + normalizedBrand(m && m.nameScore));
   }
 
   function spamBand(spam_score) {
@@ -670,7 +677,7 @@
   function brandBand(score) {
     var n = Number(score);
     if (!isFinite(n)) return { key: "", label: "" };
-    if (n >= 7) return { key: "strong", label: "Strong" };
+    if (n >= BRAND_STRONG) return { key: "strong", label: "Strong" };
     if (n >= 3.5) return { key: "ok", label: "OK" };
     return { key: "weak", label: "Weak" };
   }
@@ -678,15 +685,23 @@
   function seoBand(seoScoreVal) {
     var n = Number(seoScoreVal);
     if (!isFinite(n)) return { key: "", label: "" };
-    if (n >= 5) return { key: "strong", label: "Strong" };
+    if (n >= SEO_STRONG) return { key: "strong", label: "Strong" };
     if (n >= 0) return { key: "ok", label: "OK" };
     return { key: "weak", label: "Weak" };
   }
 
   function hasMeaningfulLinks(m) {
     m = m || {};
-    return (Number(m.referring_main_domains) || 0) >= MIN_REF_LINKS
+    return dofollowMain(m) >= MIN_REF_LINKS
       || (Number(m.rank) || 0) >= MIN_RANK_LINKS;
+  }
+
+  function brandCaveat(row) {
+    if (row.nameScore == null || row.nameScore === "") return "";
+    var band = brandBand(row.nameScore).key;
+    if (band === "weak") return " Brand name is weak — this is an SEO-only buy, not a name you'd want to keep.";
+    if (band === "strong") return " Brand name is strong — worth a look for the name alone too.";
+    return "";
   }
 
   function buyVerdict(row) {
@@ -698,30 +713,30 @@
     var band = spamBand(spam);
     var links = hasMeaningfulLinks(row);
     var traffic = hasTraffic(row);
+    var result;
     if (spam >= 61) {
-      return { verdict: "skip", verdictRank: 2, spam_band: band.key,
+      result = { verdict: "skip", verdictRank: 2, spam_band: band.key,
         reason: "High spam (61-100). Skip — toxic equity, do not register." };
-    }
-    if (!links && !traffic) {
-      return { verdict: "skip", verdictRank: 2, spam_band: band.key,
-        reason: "No meaningful Rank, Ref, UK traffic, or search volume. Skip — nothing to buy for SEO." };
-    }
-    if (spam >= 31) {
-      return { verdict: "caution", verdictRank: 1, spam_band: band.key,
+    } else if (!links && !traffic) {
+      result = { verdict: "skip", verdictRank: 2, spam_band: band.key,
+        reason: "No meaningful dofollow Rank, Ref, UK traffic, or search volume. Skip — nothing to buy for SEO." };
+    } else if (spam >= 31) {
+      result = { verdict: "caution", verdictRank: 1, spam_band: band.key,
         reason: "Medium spam (31-60). Caution — inspect links before you register." };
-    }
-    if (links && traffic) {
-      return { verdict: "buy", verdictRank: 0, spam_band: band.key,
-        reason: "Low spam with Rank/Ref and UK traffic or search volume. Buy." };
-    }
-    if (traffic) {
-      return { verdict: "buy", verdictRank: 0, spam_band: band.key,
+    } else if (links && traffic) {
+      result = { verdict: "buy", verdictRank: 0, spam_band: band.key,
+        reason: "Low spam with dofollow Rank/Ref and UK traffic or search volume. Buy." };
+    } else if (traffic) {
+      result = { verdict: "buy", verdictRank: 0, spam_band: band.key,
         reason: (Number(row.etv) || 0) > 0
           ? "Low spam with UK organic traffic. Buy."
-          : "Low spam with UK search volume. Buy." };
+          : "Low spam with UK search volume (" + MIN_SEARCH_VOLUME_ONLY + "+/mo). Buy." };
+    } else {
+      result = { verdict: "buy", verdictRank: 0, spam_band: band.key,
+        reason: "Low spam (0-30) with dofollow Rank or Ref. Buy." };
     }
-    return { verdict: "buy", verdictRank: 0, spam_band: band.key,
-      reason: "Low spam (0-30) with Rank or Ref. Buy." };
+    result.reason += brandCaveat(row);
+    return result;
   }
 
   function withScores(row) {
@@ -729,7 +744,7 @@
     var hint = buyVerdict(row);
     row.dofollow_main = dofollowMain(row);
     row.seoScore = seo;
-    row.buyScore = round2(seo + (Number(row.nameScore) || 0));
+    row.buyScore = round2(seo + normalizedBrand(row.nameScore));
     row.spam_band = hint.spam_band;
     row.verdict = hint.verdict;
     row.verdictRank = hint.verdictRank;
@@ -828,7 +843,7 @@ function updateSeoCount(){ const t=$("#seotab"); if(t) t.textContent = "("+seoRo
 function setSeoStatus(msg, isErr){ const el=$("#seostatus"); if(!el) return; el.textContent = msg||""; el.classList.toggle("err", !!isErr); }
 function lookupNameScore(d){
   const r = favMap.get(d) || allRows.find(x=>x.domain===d);
-  return r && r.score ? r.score : 0;
+  return r && r.score != null && r.score !== "" ? r.score : null;
 }
 function blankSeoRow(d, extra){
   extra = extra || {};
@@ -1046,13 +1061,13 @@ function favRows(){
       let tld="uk", label=d;
       if(d.endsWith(".co.uk")){ tld="co.uk"; label=d.slice(0,-6); }
       else if(d.endsWith(".uk")){ tld="uk"; label=d.slice(0,-3); }
-      row = {domain:d, tld:tld, words:"", word_count:0, letters:label.length, score: seo&&seo.nameScore?seo.nameScore:0,
+      row = {domain:d, tld:tld, words:"", word_count:0, letters:label.length, score: (seo && seo.nameScore != null && seo.nameScore !== "") ? seo.nameScore : null,
               commercial:0, drop_time:"", drop_ms:0, hasDigit:false, hasHyphen:false, hasUS:false,
               isWords:false, invented:false, notInList:true};
     }
     if(seo){
       row.nameScore = (seo.nameScore!=null && seo.nameScore!=="") ? seo.nameScore : row.score;
-      if(!row.score) row.score = row.nameScore || 0;
+      if(row.score == null) row.score = row.nameScore;
       row.seoScore = seo.seoScore;
       row.verdict = seo.verdict;
       row.verdictRank = seo.checkedAt ? seo.verdictRank : 3;
@@ -1082,13 +1097,13 @@ const COL_TIPS = {
   words: "Dictionary words parsed from the letters before .co.uk / .uk.",
   letters: "Character count of the name, excluding the .co.uk / .uk ending.",
   drop: "Time left until this name is due to drop at Nominet.",
-  brand: "Brand score: Weak / OK / Strong from Nominet name quality. Strong is 7+ (dictionary / commercial words), OK is 3.5+ (invented brandables), Weak is below that. This is not Rank or Ref, and it does not change Verdict or SEO score.",
+  brand: "Brand score: Weak / OK / Strong from Nominet name quality. Strong is 7+ (dictionary / commercial words), OK is 3.5+ (invented brandables), Weak is below that. This is not Rank or Ref, and it does not change SEO score — but Verdict adds a one-line brand note when it's known. — for names never run through the Nominet hunt.",
   seo: "SEO score: Weak / OK / Strong from dofollow Ref + Rank − spam + UK ETV + UK monthly searches. Strong is 5+ (links and/or demand after spam), OK is 0+, Weak is negative (spam-dominated). Unchecked stays —. DataForSEO only. Brand score does not change this.",
   tags: "commercial = buyer/service word; hyphen = hyphenated; invented = short pronounceable non-word.",
   rank: "Rank: DataForSEO backlink rank. Higher means a stronger link profile.",
-  ref: "Ref: referring main domains — how many unique websites link to this name. SEO score uses dofollow Ref (total minus nofollow).",
+  ref: "Ref: referring main domains — how many unique websites link to this name. Verdict and SEO score both use dofollow Ref only (total minus nofollow).",
   spam: "Spam is 0-100 from DataForSEO. Higher is worse. 0-30 low, 31-60 medium, 61-100 high. 50 is medium.",
-  verdict: "Buy (green), Research (amber), or Ignore (red) from spam, Rank/Ref, UK traffic, and monthly searches. 50 spam with links is Research. Unchecked stays —.",
+  verdict: "Buy (green), Research (amber), or Ignore (red) from spam, dofollow Rank/Ref, UK organic traffic, and UK search volume (100+/mo counts on its own; any organic traffic counts). Adds a brand note when a brand score is known. 50 spam with links is Research. Unchecked stays —.",
   etv: "ETV: estimated UK organic clicks from DataForSEO Labs. Filled by Check SEO.",
   kw: "KW: hyphens become spaces and glued names split into dictionary words (prepschools.co.uk → “prep schools”). Google Ads exact UK volume, not Keyword Planner’s grouped estimate.",
   checked: "When Rank, Ref, Spam, ETV, and KW were last fetched. Cached names are not billed again.",
@@ -1556,7 +1571,7 @@ function mergeSeoItems(items){
   for(const it of items){
     const prev = by.get(it.domain) || blankSeoRow(it.domain);
     Object.assign(prev, it);
-    prev.nameScore = prev.nameScore || lookupNameScore(it.domain);
+    prev.nameScore = prev.nameScore ?? lookupNameScore(it.domain);
     DropCore.withScores(prev);
     by.set(it.domain, prev);
   }
@@ -1582,7 +1597,7 @@ async function checkSeo({ force=false, onlySelected=false } = {}){
   }
   if(targets.length>1000) targets = targets.slice(0,1000);
   const nameScores = {};
-  targets.forEach(d=>{ const row=seoRows.find(r=>r.domain===d); nameScores[d]=row&&row.nameScore||0; });
+  targets.forEach(d=>{ const row=seoRows.find(r=>r.domain===d); const ns=row&&row.nameScore; if(ns!=null && ns!=="") nameScores[d]=ns; });
   setSeoStatus("Checking "+targets.length+" domain"+(targets.length===1?"":"s")+"…");
   $("#seocheck").disabled = true; $("#seorecheck").disabled = true;
   try{
@@ -1651,8 +1666,7 @@ $("#seohunt").addEventListener("click", async ()=>{
         organic_count: it.organic_count,
         search_volume: it.search_volume,
         keyword: it.keyword,
-        expiration_datetime: it.expiration_datetime,
-        nameScore: 0
+        expiration_datetime: it.expiration_datetime
       };
     });
     const n = addSeoDomains((data.items||[]).map(it=>it.domain), extras);
