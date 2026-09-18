@@ -169,7 +169,7 @@
   .seobar textarea:focus{outline:2px solid var(--ink); outline-offset:2px}
   .banner{padding:10px 12px; border:2px solid var(--ink900); background:var(--ink100); font-size:13px; margin-bottom:12px}
   #seostatus{font-family:var(--mono); font-size:12px; color:var(--ink700)}
-  #seostatus.err, #seospend.err{color:var(--ink)}
+  #seostatus.err, #seospend.err, #jevspend.err{color:var(--ink)}
   .muted{color:var(--ink500)}
   .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:#fff;
          padding:10px 16px; font-family:var(--grotesk); font-weight:700; font-size:13px; z-index:40;
@@ -329,6 +329,7 @@
               <button class="btn ghost" id="seohunt" type="button" disabled>Find expiring</button>
               <span class="hint" id="seostatus"></span>
               <span class="hint" id="seospend"></span>
+              <span class="hint" id="jevspend"></span>
             </div>
           </div>
           <div class="statusbar">
@@ -871,6 +872,7 @@ function toast(msg){
   toastTimer = setTimeout(()=>{ el.hidden = true; }, 2200);
 }
 let seoConfigured = false;
+let jevConfigured = false;
 function applySeoEnabled(){
   const msg = "SEO lookups need DataForSEO secrets in Cloudflare Pages.";
   ["#seocheck","#seorecheck","#seohunt","#seoverify"].forEach(s=>{
@@ -885,14 +887,22 @@ function applySeoEnabled(){
   }
 }
 let lastBudgetCapUSD = null;
-function updateSpendDisplay(spend){
-  const el = $("#seospend"); if(!el || !spend) return;
-  if(spend.capUSD !== undefined) lastBudgetCapUSD = spend.capUSD;
+let lastJevBudgetCapUSD = null;
+function renderSpendLine(el, label, spend, getCap, setCap){
+  if(!el || !spend) return;
+  if(spend.capUSD !== undefined) setCap(spend.capUSD);
+  const cap = getCap();
   const total = "$"+(Number(spend.total)||0).toFixed(2);
-  el.textContent = lastBudgetCapUSD
-    ? "DataForSEO this month: "+total+" / $"+Number(lastBudgetCapUSD).toFixed(2)
-    : "DataForSEO this month: "+total;
-  el.classList.toggle("err", !!(lastBudgetCapUSD && Number(spend.total) >= Number(lastBudgetCapUSD)));
+  el.textContent = cap
+    ? label+" this month: "+total+" / $"+Number(cap).toFixed(2)
+    : label+" this month: "+total;
+  el.classList.toggle("err", !!(cap && Number(spend.total) >= Number(cap)));
+}
+function updateSpendDisplay(spend){
+  renderSpendLine($("#seospend"), "DataForSEO", spend, ()=>lastBudgetCapUSD, v=>lastBudgetCapUSD=v);
+}
+function updateJevSpendDisplay(spend){
+  renderSpendLine($("#jevspend"), "Jev", spend, ()=>lastJevBudgetCapUSD, v=>lastJevBudgetCapUSD=v);
 }
 async function loadHealth(){
   try{
@@ -900,6 +910,10 @@ async function loadHealth(){
     const data = await res.json();
     seoConfigured = !!(data && data.configured);
     updateSpendDisplay(data && data.spend);
+    jevConfigured = !!(data && data.jev && data.jev.configured);
+    const jevEl = $("#jevspend");
+    if(jevConfigured) updateJevSpendDisplay(data.jev.spend);
+    else if(jevEl) jevEl.textContent = "Jev: not configured";
   }catch(e){
     seoConfigured = false;
   }

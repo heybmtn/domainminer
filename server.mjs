@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createCache } from "./lib/cache.mjs";
 import { createDataForSeoClient } from "./lib/dataforseo.mjs";
 import { enrichDomains, findExpiring, verifyDomains } from "./lib/enrich.mjs";
+import { ask as jevAsk, createJevClient } from "./lib/jev.mjs";
 import { fetchDroplist } from "./lib/nominet.mjs";
 import { getSpend, parseBudgetCap } from "./lib/spend.mjs";
 
@@ -80,6 +81,23 @@ function getBudgetCap() {
   return parseBudgetCap(process.env.DATAFORSEO_MONTHLY_BUDGET);
 }
 
+function jevConfigured() {
+  return Boolean(process.env.JEV_API_KEY);
+}
+
+function getJevClient() {
+  if (!jevConfigured()) {
+    const err = new Error("Set JEV_API_KEY in .env (see .env.example).");
+    err.status = 503;
+    throw err;
+  }
+  return createJevClient({ apiKey: process.env.JEV_API_KEY, model: process.env.JEV_MODEL || undefined });
+}
+
+function getJevBudgetCap() {
+  return parseBudgetCap(process.env.JEV_MONTHLY_BUDGET);
+}
+
 export function createServer({ cachePath } = {}) {
   const cache = createCache(cachePath || path.join(ROOT, "data", "seo-cache.json"));
 
@@ -95,12 +113,17 @@ export function createServer({ cachePath } = {}) {
       }
 
       if (req.method === "GET" && url.pathname === "/api/health") {
-        const spend = await getSpend({ cache });
+        const spend = await getSpend({ cache, service: "dataforseo" });
+        const jevSpend = await getSpend({ cache, service: "jev" });
         json(res, 200, {
           ok: true,
           configured: Boolean(process.env.DATAFORSEO_LOGIN && process.env.DATAFORSEO_PASSWORD),
           cacheSize: await cache.size(),
           spend: { ...spend, capUSD: getBudgetCap() },
+          jev: {
+            configured: jevConfigured(),
+            spend: { ...jevSpend, capUSD: getJevBudgetCap() },
+          },
         });
         return;
       }
@@ -135,6 +158,16 @@ export function createServer({ cachePath } = {}) {
           minOrganic: body.minOrganic,
           limit: body.limit,
         }, { client: getClient(), cache, budgetCapUSD: getBudgetCap() });
+        json(res, 200, result);
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/jev/ask") {
+        const body = await readBody(req);
+        const result = await jevAsk(getJevClient(), {
+          state: body.state,
+          questions: body.questions,
+        }, { cache, force: Boolean(body.force), budgetCapUSD: getJevBudgetCap() });
         json(res, 200, result);
         return;
       }

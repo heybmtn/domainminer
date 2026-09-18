@@ -324,7 +324,7 @@ test("enrichDomains and findExpiring track running monthly spend", async () => {
   const client = mockClient(calls);
   const first = await enrichDomains(["spendcheck.uk"], { cache, client });
   assert.ok(first.spendTotal > 0);
-  const spend = await getSpend({ cache });
+  const spend = await getSpend({ cache, service: "dataforseo" });
   assert.equal(spend.total, first.spendTotal);
 
   const whoisClient = {

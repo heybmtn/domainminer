@@ -18,34 +18,45 @@ function fakeKvNamespace() {
 test("recordSpend accumulates within the same UTC month", async () => {
   const cache = createKvCache(fakeKvNamespace());
   const now = () => new Date("2026-09-05T00:00:00Z");
-  await recordSpend({ cache, amount: 1.5, now });
-  await recordSpend({ cache, amount: 2.25, now });
-  const spend = await getSpend({ cache, now });
+  await recordSpend({ cache, service: "dataforseo", amount: 1.5, now });
+  await recordSpend({ cache, service: "dataforseo", amount: 2.25, now });
+  const spend = await getSpend({ cache, service: "dataforseo", now });
   assert.equal(spend.month, "2026-09");
   assert.equal(spend.total, 3.75);
 });
 
 test("recordSpend keys by UTC month, not local date string", async () => {
   const cache = createKvCache(fakeKvNamespace());
-  await recordSpend({ cache, amount: 5, now: () => new Date("2026-09-30T23:00:00Z") });
-  await recordSpend({ cache, amount: 7, now: () => new Date("2026-10-01T01:00:00Z") });
-  const sep = await getSpend({ cache, now: () => new Date("2026-09-15T00:00:00Z") });
-  const oct = await getSpend({ cache, now: () => new Date("2026-10-15T00:00:00Z") });
+  await recordSpend({ cache, service: "dataforseo", amount: 5, now: () => new Date("2026-09-30T23:00:00Z") });
+  await recordSpend({ cache, service: "dataforseo", amount: 7, now: () => new Date("2026-10-01T01:00:00Z") });
+  const sep = await getSpend({ cache, service: "dataforseo", now: () => new Date("2026-09-15T00:00:00Z") });
+  const oct = await getSpend({ cache, service: "dataforseo", now: () => new Date("2026-10-15T00:00:00Z") });
   assert.equal(sep.total, 5);
   assert.equal(oct.total, 7);
 });
 
+test("different services track spend independently", async () => {
+  const cache = createKvCache(fakeKvNamespace());
+  const now = () => new Date("2026-09-05T00:00:00Z");
+  await recordSpend({ cache, service: "dataforseo", amount: 10, now });
+  await recordSpend({ cache, service: "jev", amount: 0.02, now });
+  const dfs = await getSpend({ cache, service: "dataforseo", now });
+  const jev = await getSpend({ cache, service: "jev", now });
+  assert.equal(dfs.total, 10);
+  assert.equal(jev.total, 0.02);
+});
+
 test("recordSpend is a no-op for zero, negative, or missing cache", async () => {
   const cache = createKvCache(fakeKvNamespace());
-  await recordSpend({ cache, amount: 0 });
-  await recordSpend({ cache, amount: -5 });
-  await recordSpend({ cache: null, amount: 10 });
-  const spend = await getSpend({ cache });
+  await recordSpend({ cache, service: "dataforseo", amount: 0 });
+  await recordSpend({ cache, service: "dataforseo", amount: -5 });
+  await recordSpend({ cache: null, service: "dataforseo", amount: 10 });
+  const spend = await getSpend({ cache, service: "dataforseo" });
   assert.equal(spend.total, 0);
 });
 
 test("getSpend with no cache returns a zero total for the current month", async () => {
-  const spend = await getSpend({ cache: null, now: () => new Date("2026-09-05T00:00:00Z") });
+  const spend = await getSpend({ cache: null, service: "dataforseo", now: () => new Date("2026-09-05T00:00:00Z") });
   assert.equal(spend.month, "2026-09");
   assert.equal(spend.total, 0);
 });

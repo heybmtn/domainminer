@@ -1,4 +1,5 @@
 import { createDataForSeoClient } from "../lib/dataforseo.mjs";
+import { createJevClient } from "../lib/jev.mjs";
 import { createKvCache } from "../lib/kv-cache.mjs";
 import { parseBudgetCap } from "../lib/spend.mjs";
 
@@ -30,6 +31,24 @@ export function getCache(env) {
 /** Optional monthly spend cap in USD, from the DATAFORSEO_MONTHLY_BUDGET Pages variable. null = uncapped. */
 export function getBudgetCap(env) {
   return parseBudgetCap(env.DATAFORSEO_MONTHLY_BUDGET);
+}
+
+export function jevConfigured(env) {
+  return Boolean(env.JEV_API_KEY);
+}
+
+export function getJevClient(env) {
+  if (!jevConfigured(env)) {
+    const err = new Error("Set JEV_API_KEY as a Cloudflare Pages secret (Settings → Variables and Secrets).");
+    err.status = 503;
+    throw err;
+  }
+  return createJevClient({ apiKey: env.JEV_API_KEY, model: env.JEV_MODEL || undefined });
+}
+
+/** Optional monthly spend cap in USD, from the JEV_MONTHLY_BUDGET Pages variable. null = uncapped. */
+export function getJevBudgetCap(env) {
+  return parseBudgetCap(env.JEV_MONTHLY_BUDGET);
 }
 
 export async function readJson(request) {
