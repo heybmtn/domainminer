@@ -4,7 +4,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createCache } from "../lib/cache.mjs";
-import { enrichDomains, buildExpiringTask, keywordFromDomain } from "../lib/enrich.mjs";
+import { enrichDomains, buildExpiringTask, findExpiring, keywordFromDomain } from "../lib/enrich.mjs";
 
 function bulkPayload(pathname, items, cost = 0.01) {
   if (pathname.includes("search_volume")) {
@@ -253,6 +253,53 @@ test("force:true overwrites cache and fetches again", async () => {
   await enrichDomains(["fresh.uk"], { cache, client });
   await enrichDomains(["fresh.uk"], { cache, client, force: true });
   assert.equal(calls.length, 10);
+});
+
+test("nameScore is null (not 0) when the caller never assessed brand quality", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
+  const cache = createCache(path.join(dir, "seo-cache.json"));
+  const calls = [];
+  const client = mockClient(calls);
+  const out = await enrichDomains(["noscore.uk"], { cache, client });
+  assert.equal(out.items[0].nameScore, null);
+});
+
+test("a client-supplied nameScore is clamped to a sane range", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
+  const cache = createCache(path.join(dir, "seo-cache.json"));
+  const calls = [];
+  const client = mockClient(calls);
+  const out = await enrichDomains(["wild.uk"], { cache, client, nameScores: { "wild.uk": 999 } });
+  assert.equal(out.items[0].nameScore, 20);
+});
+
+test("findExpiring results carry a null nameScore — they were never through the Nominet hunt", async () => {
+  const client = {
+    async post() {
+      return {
+        status_code: 20000,
+        cost: 0.02,
+        tasks: [{
+          status_code: 20000,
+          cost: 0.02,
+          result: [{
+            total_count: 1,
+            items_count: 1,
+            items: [{
+              domain: "found.uk",
+              expiration_datetime: "2026-09-25 00:00:00 +00:00",
+              registered: true,
+              backlinks_info: { referring_domains: 3, referring_main_domains: 3, referring_main_domains_nofollow: 0 },
+              metrics: { organic: { etv: 0, count: 0 } },
+            }],
+          }],
+        }],
+      };
+    },
+  };
+  const out = await findExpiring({ tld: "uk" }, { client });
+  assert.equal(out.items[0].domain, "found.uk");
+  assert.equal(out.items[0].nameScore, null);
 });
 
 test("buildExpiringTask filters UK names expiring soon with a backlink floor", () => {
