@@ -10,7 +10,7 @@ export async function onRequestPost({ request, env }) {
     const items = await judgeBrandabilityBatch(getJevClient(env), rows, {
       cache,
       budgetCapUSD: getJevBudgetCap(env),
-      concurrency: 8,
+      concurrency: 5,
     });
     const cost = items.reduce((sum, it) => sum + (it.cost || 0), 0);
     const spend = await getSpend({ cache, service: "jev" });
