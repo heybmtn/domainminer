@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createCache } from "./lib/cache.mjs";
 import { createDataForSeoClient } from "./lib/dataforseo.mjs";
 import { enrichDomains, findExpiring } from "./lib/enrich.mjs";
+import { fetchDroplist } from "./lib/nominet.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -105,6 +106,13 @@ export function createServer({ cachePath } = {}) {
           client: getClient(),
           nameScores: body.nameScores && typeof body.nameScores === "object" ? body.nameScores : {},
         });
+        json(res, 200, result);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/nominet/droplist") {
+        const force = url.searchParams.get("force") === "1";
+        const result = await fetchDroplist({ cache, force });
         json(res, 200, result);
         return;
       }

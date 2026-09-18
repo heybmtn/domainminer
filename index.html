@@ -197,6 +197,7 @@
     <div class="mast-brand">DROPLIST</div>
     <div class="mast-tools">
       <div class="filemeta" id="filemeta">No Nominet list loaded</div>
+      <button class="btn" id="fetchnominet" type="button">Fetch latest</button>
       <button class="btn" id="loadnew" type="button">Load Nominet list</button>
     </div>
   </div>
@@ -218,7 +219,7 @@
             <div class="drop-tb"><span>uk.csv.gz</span></div>
             <div class="drop-bd">
               <div class="big">Drop today&rsquo;s Nominet list here</div>
-              <div class="small">Or use Load Nominet list in the masthead</div>
+              <div class="small">Auto-fetches on load, or use Fetch latest / Load Nominet list in the masthead</div>
             </div>
           </div>
           <div id="proc" style="display:none; padding:4px 4px 10px">
@@ -946,6 +947,7 @@ const drop = $("#drop"), fileInput = $("#file");
 drop.addEventListener("click", () => fileInput.click());
 drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); } });
 $("#loadnew").addEventListener("click", () => fileInput.click());
+$("#fetchnominet").addEventListener("click", () => fetchNominetList(true));
 ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("hot"); }));
 ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("hot"); }));
 drop.addEventListener("drop", e => { if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
@@ -964,6 +966,22 @@ async function handleFile(file){
     await processText(text, file);
   }catch(err){
     showProc("Couldn\u2019t read that file. Make sure it\u2019s the Nominet uk.csv.gz (or an unzipped .csv). ("+err.message+")");
+  }
+}
+
+async function fetchNominetList(force){
+  $("#dropstate").style.display="block";
+  showProc(force ? "Fetching latest Nominet list\u2026" : "Fetching today\u2019s Nominet list\u2026", 5);
+  try{
+    const res = await fetch("/api/nominet/droplist"+(force?"?force=1":""));
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || ("HTTP "+res.status));
+    showProc("Decompressing\u2026", 15);
+    await processText(data.csv, { name:"uk.csv.gz", lastModified: data.fetchedAt });
+    return true;
+  }catch(err){
+    showProc("Couldn\u2019t auto-fetch the Nominet list ("+err.message+"). Use Load Nominet list to upload it manually.");
+    return false;
   }
 }
 
@@ -1693,6 +1711,7 @@ $("#copyall").addEventListener("click", e=>{
 });
 
 render();
+if(!allRows.length) fetchNominetList(false);
 </script>
 </body>
 </html>
