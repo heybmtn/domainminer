@@ -58,6 +58,17 @@ test("Verify buy checks link trend for selected Buy names and flags a declining 
   assert.match(html, /\$\("#seoverify"\)\.addEventListener\("click", verifyBuy\)/);
 });
 
+test("Jev shortlist scores the loaded droplist and can drive the Brand score display", () => {
+  assert.match(html, /id="jevshortlistrun" type="button" disabled/);
+  assert.match(html, /id="jevshortlistsize"/);
+  assert.match(html, /id="jevshortlistonly" disabled/);
+  assert.match(html, /async function runJevShortlist/);
+  assert.match(html, /fetch\("\/api\/jev\/shortlist"/);
+  assert.match(html, /function brandBandFor/);
+  assert.match(html, /r\.jevBrand && r\.jevBrand\.band/);
+  assert.match(html, /\$\("#jevshortlistrun"\)\.addEventListener\("click", runJevShortlist\)/);
+});
+
 test("fixed layout gives Brand score and SEO score their own column widths", () => {
   assert.match(html, /table\{table-layout:fixed/);
   assert.match(html, /col\.col-brand\{width:8\.8rem\}/);

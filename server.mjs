@@ -7,6 +7,7 @@ import { createCache } from "./lib/cache.mjs";
 import { createDataForSeoClient } from "./lib/dataforseo.mjs";
 import { enrichDomains, findExpiring, verifyDomains } from "./lib/enrich.mjs";
 import { ask as jevAsk, createJevClient } from "./lib/jev.mjs";
+import { judgeBrandabilityBatch } from "./lib/jevJudgments.mjs";
 import { fetchDroplist } from "./lib/nominet.mjs";
 import { getSpend, parseBudgetCap } from "./lib/spend.mjs";
 
@@ -169,6 +170,20 @@ export function createServer({ cachePath } = {}) {
           questions: body.questions,
         }, { cache, force: Boolean(body.force), budgetCapUSD: getJevBudgetCap() });
         json(res, 200, result);
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/jev/shortlist") {
+        const body = await readBody(req);
+        const rows = Array.isArray(body.rows) ? body.rows : [];
+        const items = await judgeBrandabilityBatch(getJevClient(), rows, {
+          cache,
+          budgetCapUSD: getJevBudgetCap(),
+          concurrency: 8,
+        });
+        const cost = items.reduce((sum, it) => sum + (it.cost || 0), 0);
+        const spend = await getSpend({ cache, service: "jev" });
+        json(res, 200, { items, cost, spendTotal: spend.total });
         return;
       }
 
