@@ -49,6 +49,15 @@ test("SEO domain rows show a domain-age column from Find expiring's WHOIS data",
   assert.match(html, /function ageTip/);
 });
 
+test("Verify buy checks link trend for selected Buy names and flags a declining one", () => {
+  assert.match(html, /id="seoverify" type="button" disabled/);
+  assert.match(html, /async function verifyBuy/);
+  assert.match(html, /fetch\("\/api\/seo\/verify"/);
+  assert.match(html, /r\.verdict===("|')buy\1/);
+  assert.match(html, /Lost at least half its current Ref/);
+  assert.match(html, /\$\("#seoverify"\)\.addEventListener\("click", verifyBuy\)/);
+});
+
 test("fixed layout gives Brand score and SEO score their own column widths", () => {
   assert.match(html, /table\{table-layout:fixed/);
   assert.match(html, /col\.col-brand\{width:8\.8rem\}/);

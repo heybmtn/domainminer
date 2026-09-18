@@ -4,7 +4,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createCache } from "../lib/cache.mjs";
-import { enrichDomains, buildExpiringTask, findExpiring, keywordFromDomain, registrationAgeDays } from "../lib/enrich.mjs";
+import { enrichDomains, buildExpiringTask, findExpiring, keywordFromDomain, registrationAgeDays, verifyDomains } from "../lib/enrich.mjs";
 import { getSpend } from "../lib/spend.mjs";
 
 function bulkPayload(pathname, items, cost = 0.01) {
@@ -368,6 +368,73 @@ test("a cache hit with no new paid calls is never blocked by the budget cap", as
   const out = await enrichDomains(["cached.uk"], { cache, client, budgetCapUSD: 0.01 });
   assert.equal(calls.length, before);
   assert.equal(out.cached, 1);
+});
+
+test("verifyDomains reports gained/lost referring domains per target", async () => {
+  const calls = [];
+  const client = {
+    async post(pathname, task) {
+      calls.push({ pathname, task });
+      return {
+        status_code: 20000,
+        cost: 0.04,
+        tasks: [{
+          status_code: 20000,
+          cost: 0.04,
+          result: [{
+            items_count: 2,
+            items: [
+              { target: "stable.uk", new_referring_domains: 2, lost_referring_domains: 1 },
+              { target: "declining.uk", new_referring_domains: 0, lost_referring_domains: 35 },
+            ],
+          }],
+        }],
+      };
+    },
+  };
+  const out = await verifyDomains(["stable.uk", "declining.uk"], { client });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].pathname, /bulk_new_lost_referring_domains/);
+  assert.deepEqual(calls[0].task, { targets: ["stable.uk", "declining.uk"] });
+  const declining = out.items.find((i) => i.domain === "declining.uk");
+  assert.equal(declining.newReferringDomains, 0);
+  assert.equal(declining.lostReferringDomains, 35);
+  assert.equal(out.cost, 0.04);
+});
+
+test("verifyDomains defaults a target missing from the response to zero, not a crash", async () => {
+  const client = {
+    async post() {
+      return {
+        status_code: 20000,
+        cost: 0,
+        tasks: [{ status_code: 20000, cost: 0, result: [{ items: [] }] }],
+      };
+    },
+  };
+  const out = await verifyDomains(["missing.uk"], { client });
+  assert.equal(out.items[0].newReferringDomains, 0);
+  assert.equal(out.items[0].lostReferringDomains, 0);
+});
+
+test("verifyDomains requires a client and respects the budget cap", async () => {
+  await assert.rejects(
+    () => verifyDomains(["a.uk"], { client: null }),
+    (err) => { assert.equal(err.status, 503); return true; },
+  );
+
+  const dir = await mkdtemp(path.join(os.tmpdir(), "seo-cache-"));
+  const cache = createCache(path.join(dir, "seo-cache.json"));
+  const client = {
+    async post() {
+      return { status_code: 20000, cost: 0.02, tasks: [{ status_code: 20000, cost: 0.02, result: [{ items: [] }] }] };
+    },
+  };
+  await verifyDomains(["a.uk"], { cache, client, budgetCapUSD: 0.01 });
+  await assert.rejects(
+    () => verifyDomains(["b.uk"], { cache, client, budgetCapUSD: 0.01 }),
+    (err) => { assert.equal(err.status, 402); return true; },
+  );
 });
 
 test("buildExpiringTask filters UK names expiring soon with a backlink floor", () => {

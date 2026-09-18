@@ -307,6 +307,7 @@
               <button class="btn" id="seoadd" type="button">Add</button>
               <button class="btn ghost" id="seocheck" type="button" disabled>Check SEO</button>
               <button class="btn ghost" id="seorecheck" type="button" disabled title="Overwrite cache and fetch again">Recheck selected</button>
+              <button class="btn ghost" id="seoverify" type="button" disabled title="Second-pass link-trend check for selected Buy names, before you register">Verify buy</button>
               <button class="btn ghost" id="seoremove" type="button">Remove selected</button>
               <button class="btn ghost" id="seoclear" type="button">Clear list</button>
             </div>
@@ -872,7 +873,7 @@ function toast(msg){
 let seoConfigured = false;
 function applySeoEnabled(){
   const msg = "SEO lookups need DataForSEO secrets in Cloudflare Pages.";
-  ["#seocheck","#seorecheck","#seohunt"].forEach(s=>{
+  ["#seocheck","#seorecheck","#seohunt","#seoverify"].forEach(s=>{
     const b=$(s); if(!b) return;
     b.disabled = !seoConfigured;
     b.title = seoConfigured ? (s==="#seorecheck" ? "Overwrite cache and fetch again" : "") : msg;
@@ -1094,7 +1095,7 @@ const COL_TIPS = {
   rank: "Rank: DataForSEO backlink rank. Higher means a stronger link profile.",
   ref: "Ref: referring main domains — how many unique websites link to this name. Verdict and SEO score both use dofollow Ref only (total minus nofollow).",
   spam: "Spam is 0-100 from DataForSEO. Higher is worse. 0-30 low, 31-60 medium, 61-100 high. 50 is medium.",
-  verdict: "Buy (green), Research (amber), or Ignore (red) from spam, dofollow Rank/Ref, UK organic traffic, and UK search volume (100+/mo counts on its own; any organic traffic counts). Adds a brand note when a brand score is known. 50 spam with links is Research. Unchecked stays —.",
+  verdict: "Buy (green), Research (amber), or Ignore (red) from spam, dofollow Rank/Ref, UK organic traffic, and UK search volume (100+/mo counts on its own; any organic traffic counts). Adds a brand note when a brand score is known, and a link-trend note after Verify buy. 50 spam with links is Research. Unchecked stays —.",
   etv: "ETV: estimated UK organic clicks from DataForSEO Labs. Filled by Check SEO.",
   kw: "KW: hyphens become spaces and glued names split into dictionary words (prepschools.co.uk → “prep schools”). Google Ads exact UK volume, not Keyword Planner’s grouped estimate.",
   checked: "When Rank, Ref, Spam, ETV, and KW were last fetched. Cached names are not billed again.",
@@ -1628,6 +1629,52 @@ async function checkSeo({ force=false, onlySelected=false } = {}){
 }
 $("#seocheck").addEventListener("click", ()=> checkSeo({ force:false }));
 $("#seorecheck").addEventListener("click", ()=> checkSeo({ force:true, onlySelected:true }));
+async function verifyBuy(){
+  if(!seoConfigured){
+    setSeoStatus("SEO lookups need DataForSEO secrets in Cloudflare Pages.", true);
+    applySeoEnabled();
+    return;
+  }
+  const targets = seoRows.filter(r=>selected.has(r.domain) && r.verdict==="buy").map(r=>r.domain);
+  if(!targets.length){
+    setSeoStatus("Select one or more Buy names to verify.");
+    return;
+  }
+  setSeoStatus("Checking link trend for "+targets.length+" domain"+(targets.length===1?"":"s")+"…");
+  $("#seoverify").disabled = true;
+  try{
+    const res = await fetch("/api/seo/verify", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ domains: targets })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || ("HTTP "+res.status));
+    const byDomain = new Map((data.items||[]).map(it=>[it.domain, it]));
+    let flagged = 0;
+    for(const row of seoRows){
+      const t = byDomain.get(row.domain); if(!t) continue;
+      row.newReferringDomains = t.newReferringDomains;
+      row.lostReferringDomains = t.lostReferringDomains;
+      row.linkTrendCheckedAt = new Date().toISOString();
+      const ref = Number(row.referring_main_domains) || 0;
+      const declining = ref>0 && t.lostReferringDomains >= ref*0.5;
+      if(declining) flagged++;
+      const base = (row.verdictReason||"").replace(/ Link trend:.*$/, "");
+      row.verdictReason = base + " Link trend: +"+t.newReferringDomains+" / -"+t.lostReferringDomains+" referring domains recently."
+        + (declining ? " Lost at least half its current Ref — link equity may already be gone, inspect before registering." : "");
+    }
+    saveSeo();
+    setSeoStatus("Verified "+targets.length+", "+flagged+" show a declining link trend."
+      +(data.cost?(" · $"+data.cost):""));
+    if(data.spendTotal!=null) updateSpendDisplay({ total: data.spendTotal });
+    render();
+  }catch(err){
+    setSeoStatus(err.message || "Verify buy failed", true);
+  }finally{
+    applySeoEnabled();
+  }
+}
+$("#seoverify").addEventListener("click", verifyBuy);
 $("#seoremove").addEventListener("click", ()=>{
   const n = seoRows.length;
   seoRows = seoRows.filter(r=>!selected.has(r.domain));

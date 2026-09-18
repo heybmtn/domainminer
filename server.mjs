@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCache } from "./lib/cache.mjs";
 import { createDataForSeoClient } from "./lib/dataforseo.mjs";
-import { enrichDomains, findExpiring } from "./lib/enrich.mjs";
+import { enrichDomains, findExpiring, verifyDomains } from "./lib/enrich.mjs";
 import { fetchDroplist } from "./lib/nominet.mjs";
 import { getSpend, parseBudgetCap } from "./lib/spend.mjs";
 
@@ -135,6 +135,17 @@ export function createServer({ cachePath } = {}) {
           minOrganic: body.minOrganic,
           limit: body.limit,
         }, { client: getClient(), cache, budgetCapUSD: getBudgetCap() });
+        json(res, 200, result);
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/seo/verify") {
+        const body = await readBody(req);
+        const result = await verifyDomains(body.domains || [], {
+          cache,
+          client: getClient(),
+          budgetCapUSD: getBudgetCap(),
+        });
         json(res, 200, result);
         return;
       }
