@@ -1,4 +1,4 @@
-import { createDataForSeoClient } from "../lib/dataforseo.mjs";
+import { createDataForSeoClient, readCredentials } from "../lib/dataforseo.mjs";
 import { createKvCache } from "../lib/kv-cache.mjs";
 
 export function json(data, status = 200) {
@@ -12,8 +12,7 @@ export function json(data, status = 200) {
 }
 
 export function getClient(env) {
-  const login = env.DATAFORSEO_LOGIN;
-  const password = env.DATAFORSEO_PASSWORD;
+  const { login, password } = readCredentials(env);
   if (!login || !password) {
     const err = new Error("Set DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD as Cloudflare Pages secrets (Settings → Variables and Secrets).");
     err.status = 503;

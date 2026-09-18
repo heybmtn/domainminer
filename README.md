@@ -14,7 +14,7 @@ Open http://localhost:3847
 
 Live: https://domainminer.pages.dev
 
-Nominet filtering works without an API key. **Check SEO** and **Find expiring** stay disabled until `/api/health` reports DataForSEO is configured. On Cloudflare Pages, add `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` as encrypted environment variables for Production and Preview (Settings → Variables and Secrets).
+Nominet filtering works without an API key. **Check SEO** and **Find expiring** stay disabled until `/api/health` reports DataForSEO is configured **and authorized**. On Cloudflare Pages, add `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` as encrypted environment variables for Production and Preview (Settings → Variables and Secrets). Use the API login and API password from https://app.dataforseo.com/api-access, not the dashboard password. After changing secrets, retry the latest production deployment. Health should then show `"authorized": true`.
 
 ## Hunts
 

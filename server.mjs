@@ -4,8 +4,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCache } from "./lib/cache.mjs";
-import { createDataForSeoClient } from "./lib/dataforseo.mjs";
+import { createDataForSeoClient, readCredentials } from "./lib/dataforseo.mjs";
 import { enrichDomains, findExpiring } from "./lib/enrich.mjs";
+import { healthPayload } from "./lib/health.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -64,8 +65,7 @@ function readBody(req) {
 }
 
 function getClient() {
-  const login = process.env.DATAFORSEO_LOGIN;
-  const password = process.env.DATAFORSEO_PASSWORD;
+  const { login, password } = readCredentials(process.env);
   if (!login || !password) {
     const err = new Error("Set DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD in .env (see .env.example).");
     err.status = 503;
@@ -89,11 +89,7 @@ export function createServer({ cachePath } = {}) {
       }
 
       if (req.method === "GET" && url.pathname === "/api/health") {
-        json(res, 200, {
-          ok: true,
-          configured: Boolean(process.env.DATAFORSEO_LOGIN && process.env.DATAFORSEO_PASSWORD),
-          cacheSize: await cache.size(),
-        });
+        json(res, 200, await healthPayload(process.env, cache));
         return;
       }
 
