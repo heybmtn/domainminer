@@ -111,7 +111,10 @@
   tbody tr.spacer td{height:auto; padding:0; border:0}
   tbody tr:hover{background:var(--ink100)}
   td.dom{font-family:var(--mono); font-weight:700; color:var(--ink); overflow:hidden; max-width:0}
-  td.dom .dname{display:inline-block; max-width:calc(100% - 78px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
+  td.dom .dname{display:inline-block; max-width:calc(100% - 78px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; color:inherit; text-decoration:none}
+  td.dom a.dname:hover{text-decoration:underline}
+  .wordscell .wname{display:inline-block; max-width:calc(100% - 58px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle}
+  .wordscell .copybtn{margin-left:6px}
   .copybtn{font-family:var(--mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink700);
     background:#fff; border:1.5px solid var(--ink900); border-radius:0; padding:2px 8px; margin-left:8px; cursor:pointer; vertical-align:middle}
   .copybtn:hover{background:var(--ink100)}
@@ -169,7 +172,7 @@
   .seobar textarea:focus{outline:2px solid var(--ink); outline-offset:2px}
   .banner{padding:10px 12px; border:2px solid var(--ink900); background:var(--ink100); font-size:13px; margin-bottom:12px}
   #seostatus{font-family:var(--mono); font-size:12px; color:var(--ink700)}
-  #seostatus.err, #seospend.err, #jevspend.err{color:var(--ink)}
+  #seostatus.err, #seospend.err{color:var(--ink)}
   .muted{color:var(--ink500)}
   .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:#fff;
          padding:10px 16px; font-family:var(--grotesk); font-weight:700; font-size:13px; z-index:40;
@@ -289,17 +292,6 @@
               </div>
               <div class="hint" style="margin-top:8px"><a href="#" id="resetseen">Reset tracking</a></div>
             </div>
-
-            <div class="fld">
-              <label class="t">Jev shortlist</label>
-              <div class="row">
-                <input type="number" id="jevshortlistsize" min="10" max="5000" value="200">
-                <button class="btn ghost" id="jevshortlistrun" type="button" disabled title="Needs JEV_API_KEY configured">Run Jev shortlist</button>
-              </div>
-              <div class="hint">Scores brandability for every loaded name with Jev, so DataForSEO credits only get spent on the top-scoring names. Also becomes the Brand score when Jev is configured.</div>
-              <label class="chk" style="margin-top:8px"><input type="checkbox" id="jevshortlistonly" disabled> Jev shortlist only</label>
-              <div class="hint" id="jevshortliststatus"></div>
-            </div>
             </div><!-- /filtergrid -->
 
             <div class="filteractions">
@@ -340,7 +332,6 @@
               <button class="btn ghost" id="seohunt" type="button" disabled>Find expiring</button>
               <span class="hint" id="seostatus"></span>
               <span class="hint" id="seospend"></span>
-              <span class="hint" id="jevspend"></span>
             </div>
           </div>
           <div class="statusbar">
@@ -883,7 +874,6 @@ function toast(msg){
   toastTimer = setTimeout(()=>{ el.hidden = true; }, 2200);
 }
 let seoConfigured = false;
-let jevConfigured = false;
 function applySeoEnabled(){
   const msg = "SEO lookups need DataForSEO secrets in Cloudflare Pages.";
   ["#seocheck","#seorecheck","#seohunt","#seoverify"].forEach(s=>{
@@ -898,22 +888,14 @@ function applySeoEnabled(){
   }
 }
 let lastBudgetCapUSD = null;
-let lastJevBudgetCapUSD = null;
-function renderSpendLine(el, label, spend, getCap, setCap){
-  if(!el || !spend) return;
-  if(spend.capUSD !== undefined) setCap(spend.capUSD);
-  const cap = getCap();
-  const total = "$"+(Number(spend.total)||0).toFixed(2);
-  el.textContent = cap
-    ? label+" this month: "+total+" / $"+Number(cap).toFixed(2)
-    : label+" this month: "+total;
-  el.classList.toggle("err", !!(cap && Number(spend.total) >= Number(cap)));
-}
 function updateSpendDisplay(spend){
-  renderSpendLine($("#seospend"), "DataForSEO", spend, ()=>lastBudgetCapUSD, v=>lastBudgetCapUSD=v);
-}
-function updateJevSpendDisplay(spend){
-  renderSpendLine($("#jevspend"), "Jev", spend, ()=>lastJevBudgetCapUSD, v=>lastJevBudgetCapUSD=v);
+  const el = $("#seospend"); if(!el || !spend) return;
+  if(spend.capUSD !== undefined) lastBudgetCapUSD = spend.capUSD;
+  const total = "$"+(Number(spend.total)||0).toFixed(2);
+  el.textContent = lastBudgetCapUSD
+    ? "DataForSEO this month: "+total+" / $"+Number(lastBudgetCapUSD).toFixed(2)
+    : "DataForSEO this month: "+total;
+  el.classList.toggle("err", !!(lastBudgetCapUSD && Number(spend.total) >= Number(lastBudgetCapUSD)));
 }
 async function loadHealth(){
   try{
@@ -921,12 +903,6 @@ async function loadHealth(){
     const data = await res.json();
     seoConfigured = !!(data && data.configured);
     updateSpendDisplay(data && data.spend);
-    jevConfigured = !!(data && data.jev && data.jev.configured);
-    const jevEl = $("#jevspend");
-    if(jevConfigured) updateJevSpendDisplay(data.jev.spend);
-    else if(jevEl) jevEl.textContent = "Jev: not configured";
-    const jevBtn = $("#jevshortlistrun");
-    if(jevBtn) jevBtn.disabled = !jevConfigured;
   }catch(e){
     seoConfigured = false;
   }
@@ -1047,13 +1023,8 @@ function readFilters(){
   };
 }
 
-let jevShortlist = null;
 function applyAndRender(){
-  let rows = DropCore.applyFilters(allRows, readFilters());
-  if(jevShortlist && $("#jevshortlistonly") && $("#jevshortlistonly").checked){
-    rows = rows.filter(r=>jevShortlist.has(r.domain));
-  }
-  filtered = rows;
+  filtered = DropCore.applyFilters(allRows, readFilters());
   sortFiltered();
   render();
 }
@@ -1306,22 +1277,6 @@ function scoreBandTip(kind, score){
   const num = isFinite(n) ? n.toFixed(2) : "";
   return band.label+" ("+num+"). "+explainer;
 }
-const JEV_BAND_LABEL = { weak:"Weak", ok:"OK", strong:"Strong" };
-function brandBandFor(r){
-  if(r.jevBrand && r.jevBrand.band){
-    return { key: r.jevBrand.band, label: JEV_BAND_LABEL[r.jevBrand.band] || r.jevBrand.band };
-  }
-  return DropCore.brandBand(r.score);
-}
-function brandTipFor(r){
-  if(r.jevBrand && r.jevBrand.band){
-    const label = JEV_BAND_LABEL[r.jevBrand.band] || r.jevBrand.band;
-    const scoreNum = r.jevBrand.score!=null ? r.jevBrand.score.toFixed(2) : "?";
-    const conf = r.jevBrand.confidence!=null ? " Confidence "+(r.jevBrand.confidence*100).toFixed(0)+"%." : "";
-    return "Jev brandability: "+label+" (score "+scoreNum+"/2)."+conf;
-  }
-  return scoreBandTip("brand", r.score);
-}
 function fmtChecked(iso){
   if(!iso) return '<span class="muted">not yet</span>';
   const d = new Date(iso); if(isNaN(d)) return iso;
@@ -1346,11 +1301,16 @@ function tagHtml(r){
   return t;
 }
 
+function wordsCellHtml(r){
+  if(!r.words) return '<span class="muted">—</span>';
+  return '<span class="wname">'+r.words+'</span>'+
+    '<button class="copybtn" type="button" data-w="'+r.words+'" title="Copy '+r.words+'" aria-label="Copy words">copy</button>';
+}
 function rowHtml(r, now){
   const sel = '<td class="selcol"><input type="checkbox" class="selbox" data-d="'+r.domain+'"'+(selected.has(r.domain)?' checked':'')+'></td>';
   const dom = '<td class="dom mono">'+
       '<button class="favbtn'+(favs.has(r.domain)?' on':'')+'" type="button" data-d="'+r.domain+'" title="Watchlist" aria-label="Watchlist">'+(favs.has(r.domain)?'★':'☆')+'</button>'+
-      '<span class="dname">'+r.domain+'</span>'+
+      '<a class="dname" href="https://www.namecheap.com/domains/registration/results/?domain='+encodeURIComponent(r.domain)+'" target="_blank" rel="noopener" title="Search '+r.domain+' on Namecheap">'+r.domain+'</a>'+
       '<button class="copybtn" type="button" data-d="'+r.domain+'" title="Copy '+r.domain+'" aria-label="Copy domain">copy</button>'+
       '</td>';
   if(view==="seo"){
@@ -1381,15 +1341,15 @@ function rowHtml(r, now){
   const soon = diff>=864e5 && diff < 5*864e5;
   const until = !r.drop_ms ? '' : (dropped ? 'dropped' : fmtDur(diff));
   const ttdCls = urgent ? 'ttd urgent' : (soon ? 'ttd soon' : (dropped ? 'ttd dropped' : 'ttd'));
-  const words = r.words ? r.words : '<span class="muted">—</span>';
+  const words = wordsCellHtml(r);
   if(view==="favs"){
     const checked = !!r.checkedAt;
     const hasBrand = r.score != null && r.score !== "";
-    const brand = hasBrand ? scoreBandHtml(brandBandFor(r)) : '<span class="muted">—</span>';
+    const brand = hasBrand ? scoreBandHtml(DropCore.brandBand(r.score)) : '<span class="muted">—</span>';
     const vTip = r.verdictReason || COL_TIPS.verdict;
     const seo = checked ? scoreBandHtml(DropCore.seoBand(r.seoScore)) : '<span class="muted">—</span>';
     const seoTip = checked ? scoreBandTip("seo", r.seoScore) : COL_TIPS.seo;
-    const brandTip = hasBrand ? brandTipFor(r) : COL_TIPS.brand;
+    const brandTip = hasBrand ? scoreBandTip("brand", r.score) : COL_TIPS.brand;
     return '<tr'+(r.notInList?' class="notinlist"':'')+'>'+
       sel+dom+
       '<td class="wordscell" data-tip="'+COL_TIPS.words+'">'+words+'</td>'+
@@ -1406,7 +1366,7 @@ function rowHtml(r, now){
     '<td class="wordscell" data-tip="'+COL_TIPS.words+'">'+words+'</td>'+
     '<td class="num" data-tip="'+COL_TIPS.letters+'">'+(r.letters||'')+'</td>'+
     '<td data-tip="'+COL_TIPS.drop+'"><span class="'+ttdCls+'" data-drop-ms="'+(r.drop_ms||'')+'" title="'+(r.drop_time||'')+'">'+until+'</span></td>'+
-    '<td data-tip="'+brandTipFor(r)+'">'+scoreBandHtml(brandBandFor(r))+'</td>'+
+    '<td data-tip="'+scoreBandTip("brand", r.score)+'">'+scoreBandHtml(DropCore.brandBand(r.score))+'</td>'+
     '<td data-tip="'+COL_TIPS.tags+'">'+tagHtml(r)+'</td>'+
     '</tr>';
 }
@@ -1514,86 +1474,6 @@ function render(){
 
 window.__processText = processText;
 function runFilters(){ filtered=[]; window.__filteredOnce=false; applyAndRender(); }
-
-/**
- * Cloudflare caps total subrequests (fetch + KV get/put) per Function
- * invocation, so the whole droplist can never go in one request — the
- * server enforces its own cap defensively, but the real fix has to be
- * here: chunk the list and issue many separate requests.
- */
-const JEV_CHUNK_SIZE = 15;
-const JEV_REQUEST_CONCURRENCY = 3;
-
-async function runJevShortlist(){
-  const statusEl = $("#jevshortliststatus");
-  if(!jevConfigured){
-    if(statusEl) statusEl.textContent = "Jev lookups need JEV_API_KEY configured.";
-    return;
-  }
-  if(!allRows.length){
-    if(statusEl) statusEl.textContent = "Load a Nominet list first.";
-    return;
-  }
-  const size = Math.max(1, +$("#jevshortlistsize").value || 200);
-  const rows = allRows.map(r=>({domain:r.domain, words:r.words, tld:r.tld}));
-  const chunks = [];
-  for(let i=0;i<rows.length;i+=JEV_CHUNK_SIZE) chunks.push(rows.slice(i, i+JEV_CHUNK_SIZE));
-
-  $("#jevshortlistrun").disabled = true;
-  const scored = new Map();
-  let errors = 0, totalCost = 0, done = 0, failed = null;
-
-  function updateProgress(){
-    if(!statusEl) return;
-    statusEl.textContent = "Scoring with Jev… "+done+"/"+chunks.length+" batches"
-      +(scored.size?(" · "+scored.size.toLocaleString()+" scored"):"")
-      +(errors?(", "+errors+" failed"):"");
-  }
-  updateProgress();
-
-  async function runChunk(chunk){
-    try{
-      const res = await fetch("/api/jev/shortlist", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ rows: chunk })
-      });
-      const data = await res.json().catch(()=>({}));
-      if(!res.ok) throw new Error(data.error || ("HTTP "+res.status));
-      (data.items||[]).forEach(it=>{
-        if(it.error){ errors++; return; }
-        scored.set(it.domain, it);
-        const row = favMap.get(it.domain);
-        if(row) row.jevBrand = it;
-      });
-      totalCost += data.cost || 0;
-      if(data.spendTotal!=null) updateJevSpendDisplay({ total: data.spendTotal });
-    }catch(err){
-      failed = err.message || "Jev shortlist failed";
-    }
-    done++;
-    updateProgress();
-  }
-
-  let cursor = 0;
-  async function worker(){
-    while(cursor < chunks.length && !failed){
-      await runChunk(chunks[cursor++]);
-    }
-  }
-  await Promise.all(Array.from({length: Math.min(JEV_REQUEST_CONCURRENCY, chunks.length)}, worker));
-
-  const ranked = [...scored.entries()].sort((a,b)=>(b[1].score||0)-(a[1].score||0));
-  jevShortlist = new Set(ranked.slice(0, size).map(([d])=>d));
-  if(jevShortlist.size) $("#jevshortlistonly").disabled = false;
-  if(statusEl) statusEl.textContent = (failed ? failed+" — " : "")
-    +"Scored "+scored.size.toLocaleString()+" names"
-    +(errors?(", "+errors+" failed"):"")+". Shortlist: top "+jevShortlist.size.toLocaleString()+"."
-    +(totalCost?(" · $"+totalCost.toFixed(6)):"");
-  runFilters();
-  $("#jevshortlistrun").disabled = !jevConfigured;
-}
-$("#jevshortlistrun").addEventListener("click", runJevShortlist);
-$("#jevshortlistonly").addEventListener("change", runFilters);
 let filterTimer = null;
 function scheduleFilters(){
   if(!applyingPreset) markPreset("");
@@ -1672,7 +1552,7 @@ document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click", ()=>{
 }));
 $("#tbody").addEventListener("click", e=>{
   const cp = e.target.closest(".copybtn");
-  if(cp){ e.preventDefault(); copyDomain(cp.getAttribute("data-d"), cp); return; }
+  if(cp){ e.preventDefault(); copyDomain(cp.hasAttribute("data-w") ? cp.getAttribute("data-w") : cp.getAttribute("data-d"), cp); return; }
   const fv = e.target.closest(".favbtn");
   if(fv){ e.preventDefault(); const d=fv.getAttribute("data-d");
     if(favs.has(d)){ favs.delete(d); fv.classList.remove("on"); fv.textContent="☆"; }

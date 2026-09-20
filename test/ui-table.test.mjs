@@ -58,23 +58,22 @@ test("Verify buy checks link trend for selected Buy names and flags a declining 
   assert.match(html, /\$\("#seoverify"\)\.addEventListener\("click", verifyBuy\)/);
 });
 
-test("Jev shortlist scores the loaded droplist and can drive the Brand score display", () => {
-  assert.match(html, /id="jevshortlistrun" type="button" disabled/);
-  assert.match(html, /id="jevshortlistsize"/);
-  assert.match(html, /id="jevshortlistonly" disabled/);
-  assert.match(html, /async function runJevShortlist/);
-  assert.match(html, /fetch\("\/api\/jev\/shortlist"/);
-  assert.match(html, /function brandBandFor/);
-  assert.match(html, /r\.jevBrand && r\.jevBrand\.band/);
-  assert.match(html, /\$\("#jevshortlistrun"\)\.addEventListener\("click", runJevShortlist\)/);
-});
-
 test("fixed layout gives Brand score and SEO score their own column widths", () => {
   assert.match(html, /table\{table-layout:fixed/);
   assert.match(html, /col\.col-brand\{width:8\.8rem\}/);
   assert.match(html, /col\.col-seo\{width:7\.6rem\}/);
   assert.match(html, /thead th\.num, td\.num\{text-align:right/);
   assert.match(html, /SEO_COLS = '.*col-verdict.*col-seo.*col-brand.*col-num.*col-num.*col-spam.*col-num.*col-kw.*col-when/);
+});
+
+test("domain name links to a Namecheap search prefilled with that domain", () => {
+  assert.match(html, /class="dname" href="https:\/\/www\.namecheap\.com\/domains\/registration\/results\/\?domain='\+encodeURIComponent\(r\.domain\)\+'" target="_blank" rel="noopener"/);
+});
+
+test("words column has its own copy button, wired through the shared copy handler", () => {
+  assert.match(html, /function wordsCellHtml/);
+  assert.match(html, /data-w="'\+r\.words\+'"/);
+  assert.match(html, /cp\.hasAttribute\("data-w"\) \? cp\.getAttribute\("data-w"\) : cp\.getAttribute\("data-d"\)/);
 });
 
 test("Spam hover explains 0-100 bands and that 50 is medium", () => {

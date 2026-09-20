@@ -16,12 +16,6 @@ Live: https://domainminer.pages.dev
 
 Nominet filtering works without an API key. **Check SEO** and **Find expiring** stay disabled until `/api/health` reports DataForSEO is configured. On Cloudflare Pages, add `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` as encrypted environment variables for Production and Preview (Settings → Variables and Secrets). Optionally add `DATAFORSEO_MONTHLY_BUDGET` (a USD number) to soft-cap monthly DataForSEO spend — once this month's running total (shown next to Find expiring) reaches it, new paid calls are blocked with a clear error until next month or a higher cap.
 
-### Jev (TypeSafe AI) — optional
-
-Everything above works without this. Add `JEV_API_KEY` (and optionally `JEV_MODEL`, `JEV_MONTHLY_BUDGET`, capped independently of the DataForSEO budget) to enable Jev-backed judgments — plain HTTP calls to `https://api.typesafe.ai/v1/systemone`, no plugin/skill installed. Every judgment is cached forever (stable for a given input) through the same cache as SEO metrics. Configuration and this-month spend show in `/api/health` and next to the DataForSEO spend line in the UI.
-
-**Jev shortlist** (Brandables view, needs `JEV_API_KEY`): scores every currently loaded Nominet name for brandability in one batched pass, before any DataForSEO spend. Set a shortlist size, click **Run Jev shortlist**, then tick **Jev shortlist only** to narrow the list to the top scorers (on top of whatever other filters are active) — so DataForSEO credits only get spent checking names Jev already rates highly. When Jev has scored a name, its judgment drives the displayed **Brand score** badge (Weak/OK/Strong) instead of the built-in dictionary/invented-word heuristic; the heuristic remains the fallback for unscored names and for everything when `JEV_API_KEY` is unset.
-
 ## Hunts
 
 1. **Brandables** — today’s Nominet `uk.csv.gz` auto-fetches on load (server-side, cached ~6h) from `droplists.nominet.uk`; **Fetch latest** forces a fresh pull. Presets (Clean brandable, Commercial, All names) apply immediately. Star a name to put it on the Watchlist; **Add to SEO** copies selected names onto the SEO domains list. Scoring here is **Brand score** only (dictionary / invented / `.co.uk` boost). No DataForSEO.
